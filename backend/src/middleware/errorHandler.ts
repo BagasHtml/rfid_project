@@ -11,28 +11,42 @@ export function errorHandler(
   res: Response,
   _next: NextFunction
 ): void {
-  const isDatabaseError = err.code?.startsWith('ER_');
-  const statusCode = err.statusCode || 500;
-  const errorId = `ERR_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const errorId = `ERR_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 
   console.error(`[${errorId}] ${err.message}`);
-  console.error(`[${errorId}] Stack: ${err.stack}`);
 
-  if (isDatabaseError) {
-    console.error(`[${errorId}] Database Error Code: ${err.code}`);
+  const connectionErrors = ['ECONNREFUSED', 'PROTOCOL_CONNECTION_LOST', 'ENOTFOUND'];
+
+  if (connectionErrors.includes(err.code ?? '')) {
+    res.status(503).json({
+      success: false,
+      message: 'Database tidak dapat dihubungi',
+      errorId,
+    });
+    return;
   }
 
-  let message = 'Terjadi kesalahan pada server';
-
-  if (isDatabaseError && err.code === 'ER_DUP_ENTRY') {
-    message = 'Data sudah ada dalam sistem';
-  } else if (isDatabaseError) {
-    message = 'Terjadi kesalahan pada database';
+  if (err.code === 'ER_DUP_ENTRY') {
+    res.status(409).json({
+      success: false,
+      message: 'Data sudah ada dalam sistem',
+      errorId,
+    });
+    return;
   }
 
-  res.status(statusCode).json({
+  if (err.code?.startsWith('ER_')) {
+    res.status(500).json({
+      success: false,
+      message: 'Terjadi kesalahan pada database',
+      errorId,
+    });
+    return;
+  }
+
+  res.status(err.statusCode || 500).json({
     success: false,
-    message,
+    message: 'Terjadi kesalahan pada server',
     errorId,
   });
 }
