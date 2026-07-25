@@ -49,8 +49,8 @@ export async function insertAttendance(
   return result.insertId;
 }
 
-export async function getTodayList(): Promise<AttendanceWithStudent[]> {
-  const query = `
+export async function getTodayList(limit: number = 100, offset: number = 0): Promise<{ data: AttendanceWithStudent[]; total: number }> {
+  const dataQuery = `
     SELECT
       a.id,
       a.student_id,
@@ -63,10 +63,22 @@ export async function getTodayList(): Promise<AttendanceWithStudent[]> {
     INNER JOIN students s ON s.id = a.student_id
     WHERE a.date = CURDATE()
     ORDER BY a.time DESC
+    LIMIT ? OFFSET ?
   `;
 
-  const [rows] = await pool.query<RowDataPacket[]>(query);
-  return rows as AttendanceWithStudent[];
+  const countQuery = `
+    SELECT COUNT(*) AS total
+    FROM attendance
+    WHERE date = CURDATE()
+  `;
+
+  const [rows] = await pool.query<RowDataPacket[]>(dataQuery, [limit, offset]);
+  const [countResult] = await pool.query<RowDataPacket[]>(countQuery);
+
+  return {
+    data: rows as AttendanceWithStudent[],
+    total: (countResult[0] as { total: number }).total,
+  };
 }
 
 export async function getSetting(key: string): Promise<string | null> {

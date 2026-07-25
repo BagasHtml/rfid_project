@@ -87,6 +87,6 @@ export async function processAttendance(uid: string): Promise<AttendanceResult> 
   };
 }
 
-export async function getTodayList() {
-  return repo.getTodayList();
+export async function getTodayList(limit?: number, offset?: number) {
+  return repo.getTodayList(limit, offset);
 }
