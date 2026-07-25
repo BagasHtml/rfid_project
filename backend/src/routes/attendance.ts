@@ -28,9 +28,12 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
   res.status(statusCode).json(result);
 }));
 
-router.get('/today', asyncHandler(async (_req: Request, res: Response) => {
-  const data = await service.getTodayList();
-  res.json({ success: true, data });
+router.get('/today', asyncHandler(async (req: Request, res: Response) => {
+  const limit = Number(req.query.limit) || 100;
+  const offset = Number(req.query.offset) || 0;
+
+  const result = await service.getTodayList(limit, offset);
+  res.json({ success: true, ...result });
 }));
 
 router.get('/stream', (req: Request, res: Response) => {

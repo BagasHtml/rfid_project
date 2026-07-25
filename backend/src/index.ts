@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { env } from './config/env.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { requestLogger } from './middleware/requestLogger.js';
 import attendanceRoutes from './routes/attendance.js';
 
 const app = express();
@@ -9,6 +10,8 @@ const app = express();
 app.use(cors({
   origin: process.env.CORS_ORIGIN || 'http://localhost:4321',
 }));
+
+app.use(requestLogger);
 
 app.use(express.json({ limit: '1kb' }));
 
