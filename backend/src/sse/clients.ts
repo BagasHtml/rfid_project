@@ -12,7 +12,7 @@ const MAX_CLIENTS = 100;
 const HEARTBEAT_INTERVAL = 30000;
 const CONNECTION_TIMEOUT = 90000;
 
-let heartbeatTimer: NodeJS.Timer | null = null;
+let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
 function startHeartbeat() {
   if (heartbeatTimer) return;
