@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import { pool } from './config/db.js';
 import { env } from './config/env.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
@@ -8,21 +9,55 @@ import attendanceRoutes from './routes/attendance.js';
 const app = express();
 
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:4321',
+  origin: env.corsOrigin,
 }));
 
 app.use(requestLogger);
 
 app.use(express.json({ limit: '1kb' }));
 
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get('/api/health', async (_req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    res.json({ status: 'ok', db: 'connected', timestamp: new Date().toISOString() });
+  } catch {
+    res.status(503).json({ status: 'error', db: 'disconnected', timestamp: new Date().toISOString() });
+  }
 });
 
 app.use('/api/attendance', attendanceRoutes);
 
 app.use(errorHandler);
 
-app.listen(env.port, () => {
+const server = app.listen(env.port, () => {
   console.log(`Server running on http://localhost:${env.port}`);
 });
+
+const SHUTDOWN_TIMEOUT = 10_000;
+
+async function shutdown(signal: string) {
+  console.log(`\n${signal} received. Shutting down gracefully...`);
+
+  const forceExit = setTimeout(() => {
+    console.error(`Forced exit after ${SHUTDOWN_TIMEOUT}ms timeout`);
+    process.exit(1);
+  }, SHUTDOWN_TIMEOUT);
+  forceExit.unref();
+
+  server.close(() => {
+    console.log('HTTP server closed.');
+  });
+
+  try {
+    await pool.end();
+    console.log('Database pool closed.');
+  } catch (err) {
+    console.error('Error closing database pool:', err);
+  }
+
+  clearTimeout(forceExit);
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

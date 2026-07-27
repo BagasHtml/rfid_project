@@ -58,7 +58,8 @@ export async function getTodayList(limit: number = 100, offset: number = 0): Pro
       a.time,
       a.status,
       s.name AS student_name,
-      s.class AS student_class
+      s.class AS student_class,
+      s.nis AS student_nis
     FROM attendance a
     INNER JOIN students s ON s.id = a.student_id
     WHERE a.date = CURDATE()

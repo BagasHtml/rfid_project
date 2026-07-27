@@ -2,37 +2,35 @@ import { Router, Request, Response } from 'express';
 import * as service from '../services/attendance.js';
 import { registerClient } from '../sse/clients.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
+import { PostAttendanceSchema, GetTodayQuerySchema } from '../validators/attendance.js';
 
 const router = Router();
 
-const UID_PATTERN = /^[0-9A-Fa-f]{8,24}$/;
-
 router.post('/', asyncHandler(async (req: Request, res: Response) => {
-  const { uid } = req.body;
+  const parsed = PostAttendanceSchema.safeParse(req.body);
 
-  if (!uid || typeof uid !== 'string') {
-    res.status(400).json({ success: false, message: 'UID tidak valid' });
+  if (!parsed.success) {
+    const message = parsed.error.issues[0]?.message || 'Data tidak valid';
+    res.status(400).json({ success: false, message });
     return;
   }
 
-  const sanitized = uid.trim().toUpperCase();
-
-  if (!UID_PATTERN.test(sanitized)) {
-    res.status(400).json({ success: false, message: 'Format UID tidak valid' });
-    return;
-  }
-
-  const result = await service.processAttendance(sanitized);
+  const result = await service.processAttendance(parsed.data.uid);
   const statusCode = result.success ? 200 : 409;
 
   res.status(statusCode).json(result);
 }));
 
 router.get('/today', asyncHandler(async (req: Request, res: Response) => {
-  const limit = Number(req.query.limit) || 100;
-  const offset = Number(req.query.offset) || 0;
+  const parsed = GetTodayQuerySchema.safeParse(req.query);
 
-  const result = await service.getTodayList(limit, offset);
+  if (!parsed.success) {
+    const message = parsed.error.issues[0]?.message || 'Parameter tidak valid';
+    res.status(400).json({ success: false, message });
+    return;
+  }
+
+  const result = await service.getTodayList(parsed.data.limit, parsed.data.offset);
   res.json({ success: true, ...result });
 }));
 

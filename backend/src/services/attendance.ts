@@ -1,10 +1,10 @@
 import * as repo from '../repositories/attendance.js';
 import { broadcast } from '../sse/clients.js';
 import { env } from '../config/env.js';
-import type { AttendanceResult, AttendanceStatus } from '../types/index.js';
+import type { AttendanceResult, AttendanceStatus, CardWithStudent } from '../types/index.js';
 
 function determineStatus(currentTime: string, threshold: string): AttendanceStatus {
-  return currentTime <= threshold ? 'Hadir' : 'Terlambat';
+  return currentTime <= threshold ? 'Tepat Waktu' : 'Terlambat';
 }
 
 function getCurrentTime(): string {
@@ -20,6 +20,24 @@ function isDuplicateEntryError(err: unknown): boolean {
   );
 }
 
+function buildStudentInfo(card: CardWithStudent) {
+  return {
+    name: card.student_name,
+    class: card.student_class,
+    nis: card.student_nis,
+  };
+}
+
+function buildDuplicateResponse(card: CardWithStudent, status?: AttendanceStatus, time?: string): AttendanceResult {
+  return {
+    success: false,
+    message: 'Sudah absen hari ini',
+    student: buildStudentInfo(card),
+    status,
+    time,
+  };
+}
+
 export async function processAttendance(uid: string): Promise<AttendanceResult> {
   const card = await repo.findActiveCardByUid(uid);
 
@@ -30,17 +48,7 @@ export async function processAttendance(uid: string): Promise<AttendanceResult> 
   const existing = await repo.findTodayAttendance(card.student_id);
 
   if (existing) {
-    return {
-      success: false,
-      message: 'Sudah absen hari ini',
-      student: {
-        name: card.student_name,
-        class: card.student_class,
-        nis: card.student_nis,
-      },
-      status: existing.status,
-      time: existing.time,
-    };
+    return buildDuplicateResponse(card, existing.status, existing.time);
   }
 
   const threshold = (await repo.getSetting('late_threshold')) ?? env.lateThreshold;
@@ -51,37 +59,20 @@ export async function processAttendance(uid: string): Promise<AttendanceResult> 
     await repo.insertAttendance(card.student_id, time, status);
   } catch (err) {
     if (isDuplicateEntryError(err)) {
-      return {
-        success: false,
-        message: 'Sudah absen hari ini',
-        student: {
-          name: card.student_name,
-          class: card.student_class,
-          nis: card.student_nis,
-        },
-      };
+      const duplicate = await repo.findTodayAttendance(card.student_id);
+      return buildDuplicateResponse(card, duplicate?.status, duplicate?.time);
     }
     throw err;
   }
 
-  const payload = {
-    name: card.student_name,
-    class: card.student_class,
-    nis: card.student_nis,
-    time,
-    status,
-  };
+  const studentInfo = buildStudentInfo(card);
 
-  broadcast('attendance:new', payload);
+  broadcast('attendance:new', { ...studentInfo, time, status });
 
   return {
     success: true,
     message: 'Absensi berhasil',
-    student: {
-      name: card.student_name,
-      class: card.student_class,
-      nis: card.student_nis,
-    },
+    student: studentInfo,
     status,
     time,
   };

@@ -24,9 +24,10 @@ export interface AttendanceRecord {
 export interface AttendanceWithStudent extends AttendanceRecord {
   student_name: string;
   student_class: string;
+  student_nis: string;
 }
 
-export type AttendanceStatus = 'Hadir' | 'Terlambat';
+export type AttendanceStatus = 'Tepat Waktu' | 'Terlambat';
 
 export interface CardWithStudent {
   uid: string;
