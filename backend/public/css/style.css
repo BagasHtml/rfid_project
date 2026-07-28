@@ -1,0 +1,398 @@
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --primary: #2563eb;
+  --primary-dark: #1d4ed8;
+  --success: #16a34a;
+  --danger: #dc2626;
+  --warning: #f59e0b;
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-300: #d1d5db;
+  --gray-500: #6b7280;
+  --gray-700: #374151;
+  --gray-900: #111827;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--gray-50);
+  color: var(--gray-900);
+  min-height: 100vh;
+}
+
+.header {
+  background: var(--primary);
+  color: white;
+  padding: 1rem 2rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.header-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.logo-icon {
+  width: 28px;
+  height: 28px;
+}
+
+.logo h1 {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.header-date {
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.scan-section {
+  margin-bottom: 2rem;
+}
+
+.scan-card {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 2px dashed var(--gray-300);
+  transition: border-color 0.3s, background 0.3s;
+}
+
+.scan-card.active {
+  border-color: var(--primary);
+  background: var(--gray-50);
+}
+
+.scan-card.success {
+  border-color: var(--success);
+  background: #f0fdf4;
+}
+
+.scan-card.error {
+  border-color: var(--danger);
+  background: #fef2f2;
+}
+
+.scan-card.duplicate {
+  border-color: var(--warning);
+  background: #fffbeb;
+}
+
+.scan-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 1rem;
+  color: var(--gray-500);
+}
+
+.scan-card.active .scan-icon {
+  color: var(--primary);
+}
+
+.scan-card.success .scan-icon {
+  color: var(--success);
+}
+
+.scan-card.error .scan-icon {
+  color: var(--danger);
+}
+
+.scan-card.duplicate .scan-icon {
+  color: var(--warning);
+}
+
+.scan-text {
+  color: var(--gray-500);
+  font-size: 1rem;
+}
+
+.scan-result {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+.scan-result.success {
+  background: #dcfce7;
+  color: var(--success);
+}
+
+.scan-result.error {
+  background: #fee2e2;
+  color: var(--danger);
+}
+
+.scan-result.info {
+  background: #dbeafe;
+  color: var(--primary);
+}
+
+.scan-result.duplicate {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.hidden {
+  display: none;
+}
+
+.attendance-section {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.section-header {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--gray-200);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.section-header h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.stat-badge {
+  background: var(--primary);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.attendance-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.attendance-table th {
+  background: var(--gray-50);
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--gray-700);
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.attendance-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--gray-100);
+  font-size: 0.9rem;
+}
+
+.attendance-table tbody tr:hover {
+  background: var(--gray-50);
+}
+
+.attendance-table tbody tr.new-entry {
+  animation: highlightRow 2s ease-out;
+}
+
+@keyframes highlightRow {
+  from {
+    background: #dbeafe;
+  }
+  to {
+    background: transparent;
+  }
+}
+
+.empty-row td {
+  text-align: center;
+  color: var(--gray-500);
+  padding: 2rem;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.status-badge.tepat-waktu {
+  background: #dcfce7;
+  color: var(--success);
+}
+
+.status-badge.terlambat {
+  background: #fee2e2;
+  color: var(--danger);
+}
+
+.connection-status {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: white;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  font-size: 0.85rem;
+  z-index: 100;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.status-dot.connected {
+  background: var(--success);
+  box-shadow: 0 0 6px var(--success);
+}
+
+.status-dot.disconnected {
+  background: var(--danger);
+}
+
+.status-dot.connecting {
+  background: var(--warning);
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.toast-container {
+  position: fixed;
+  top: 5rem;
+  right: 1rem;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.toast {
+  background: white;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  animation: slideIn 0.3s ease-out;
+  max-width: 350px;
+}
+
+.toast.success {
+  border-left: 4px solid var(--success);
+}
+
+.toast.error {
+  border-left: 4px solid var(--danger);
+}
+
+.toast.info {
+  border-left: 4px solid var(--primary);
+}
+
+.toast.duplicate {
+  border-left: 4px solid var(--warning);
+}
+
+.toast-name {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.toast-detail {
+  font-size: 0.85rem;
+  color: var(--gray-500);
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .header-content {
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: center;
+  }
+
+  .container {
+    padding: 1rem;
+  }
+
+  .scan-card {
+    padding: 1.5rem;
+  }
+
+  .section-header {
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: center;
+  }
+
+  .attendance-table th,
+  .attendance-table td {
+    padding: 0.5rem;
+    font-size: 0.8rem;
+  }
+}

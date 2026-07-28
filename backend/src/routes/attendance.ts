@@ -3,8 +3,14 @@ import * as service from '../services/attendance.js';
 import { registerClient } from '../sse/clients.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { PostAttendanceSchema, GetTodayQuerySchema } from '../validators/attendance.js';
+import type { AttendanceResult, AttendanceDuplicate } from '../types/index.js';
 
 const router = Router();
+
+function resolveStatusCode(result: AttendanceResult | AttendanceDuplicate): number {
+  if ('is_duplicate' in result) return 409;
+  return result.success ? 200 : 409;
+}
 
 router.post('/', asyncHandler(async (req: Request, res: Response) => {
   const parsed = PostAttendanceSchema.safeParse(req.body);
@@ -16,9 +22,7 @@ router.post('/', asyncHandler(async (req: Request, res: Response) => {
   }
 
   const result = await service.processAttendance(parsed.data.uid);
-  const statusCode = result.success ? 200 : 409;
-
-  res.status(statusCode).json(result);
+  res.status(resolveStatusCode(result)).json(result);
 }));
 
 router.get('/today', asyncHandler(async (req: Request, res: Response) => {

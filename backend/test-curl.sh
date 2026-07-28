@@ -16,6 +16,15 @@ echo "=== 2. Absen — UID Valid (Pertama Kali) ==="
 curl -s -X POST "$BASE_URL/api/attendance" \
   -H "Content-Type: application/json" \
   -d '{"uid":"04E5A0D3F7C1"}' | jq .
+  curl -s -X POST "$BASE_URL/api/attendance" \
+  -H "Content-Type: application/json" \
+  -d '{"uid":"04C3F1A8B5D0"}' | jq .
+  curl -s -X POST "$BASE_URL/api/attendance" \
+  -H "Content-Type: application/json" \
+  -d '{"uid":"0000000F51C5"}' | jq .
+  curl -s -X POST "$BASE_URL/api/attendance" \
+  -H "Content-Type: application/json" \
+  -d '{"uid":"04E5A0D3F7C1"}' | jq .
 
 echo ""
 echo "=== 3. Absen — UID Sama (Duplikat, harus gagal) ==="

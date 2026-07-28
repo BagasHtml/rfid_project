@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistem Absensi RFID</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <%- include('partials/header') %>
+
+  <main class="container">
+    <section class="scan-section">
+      <div class="scan-card">
+        <div class="scan-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="4" width="20" height="16" rx="2"/>
+            <line x1="6" y1="1" x2="6" y2="4"/>
+            <line x1="10" y1="1" x2="10" y2="4"/>
+            <line x1="14" y1="1" x2="14" y2="4"/>
+            <line x1="18" y1="1" x2="18" y2="4"/>
+          </svg>
+        </div>
+        <p class="scan-text">Tempelkan kartu RFID untuk absen</p>
+        <div id="scan-result" class="scan-result hidden"></div>
+      </div>
+    </section>
+
+    <section class="attendance-section">
+      <div class="section-header">
+        <h2>Daftar Absensi Hari Ini</h2>
+        <div class="stats">
+          <span id="total-count" class="stat-badge">0 hadir</span>
+        </div>
+      </div>
+
+      <%- include('partials/table') %>
+    </section>
+  </main>
+
+  <%- include('partials/status') %>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

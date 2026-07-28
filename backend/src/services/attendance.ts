@@ -1,7 +1,7 @@
 import * as repo from '../repositories/attendance.js';
 import { broadcast } from '../sse/clients.js';
 import { env } from '../config/env.js';
-import type { AttendanceResult, AttendanceStatus, CardWithStudent } from '../types/index.js';
+import type { AttendanceDuplicate, AttendanceResult, AttendanceStatus, CardWithStudent } from '../types/index.js';
 
 function determineStatus(currentTime: string, threshold: string): AttendanceStatus {
   return currentTime <= threshold ? 'Tepat Waktu' : 'Terlambat';
@@ -28,17 +28,18 @@ function buildStudentInfo(card: CardWithStudent) {
   };
 }
 
-function buildDuplicateResponse(card: CardWithStudent, status?: AttendanceStatus, time?: string): AttendanceResult {
-  return {
-    success: false,
+function handleDuplicate(card: CardWithStudent, status?: AttendanceStatus, time?: string): AttendanceDuplicate {
+  const studentInfo = buildStudentInfo(card);
+  broadcast('attendance:duplicate', { ...studentInfo, time, status });
+  return { 
+    is_duplicate: true,
     message: 'Sudah absen hari ini',
-    student: buildStudentInfo(card),
-    status,
-    time,
+    student: studentInfo,
+    status, time 
   };
 }
 
-export async function processAttendance(uid: string): Promise<AttendanceResult> {
+export async function processAttendance(uid: string): Promise<AttendanceResult | AttendanceDuplicate> {
   const card = await repo.findActiveCardByUid(uid);
 
   if (!card) {
@@ -48,7 +49,7 @@ export async function processAttendance(uid: string): Promise<AttendanceResult> 
   const existing = await repo.findTodayAttendance(card.student_id);
 
   if (existing) {
-    return buildDuplicateResponse(card, existing.status, existing.time);
+    return handleDuplicate(card, existing.status, existing.time);
   }
 
   const threshold = (await repo.getSetting('late_threshold')) ?? env.lateThreshold;
@@ -60,7 +61,7 @@ export async function processAttendance(uid: string): Promise<AttendanceResult> 
   } catch (err) {
     if (isDuplicateEntryError(err)) {
       const duplicate = await repo.findTodayAttendance(card.student_id);
-      return buildDuplicateResponse(card, duplicate?.status, duplicate?.time);
+      return handleDuplicate(card, duplicate?.status, duplicate?.time);
     }
     throw err;
   }

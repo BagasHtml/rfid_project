@@ -37,14 +37,24 @@ export interface CardWithStudent {
   student_nis: string;
 }
 
+export interface StudentInfo {
+  name: string;
+  class: string;
+  nis: string;
+}
+
 export interface AttendanceResult {
   success: boolean;
   message: string;
-  student?: {
-    name: string;
-    class: string;
-    nis: string;
-  };
+  student?: StudentInfo;
+  status?: AttendanceStatus;
+  time?: string;
+}
+
+export interface AttendanceDuplicate {
+  is_duplicate: boolean;
+  message: string;
+  student?: StudentInfo;
   status?: AttendanceStatus;
   time?: string;
 }

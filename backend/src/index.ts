@@ -1,16 +1,26 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { pool } from './config/db.js';
 import { env } from './config/env.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import attendanceRoutes from './routes/attendance.js';
+import pagesRoutes from './routes/pages.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
+
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
 
 app.use(cors({
   origin: env.corsOrigin,
 }));
+
+app.use(express.static(path.join(__dirname, '..', 'public')));
 
 app.use(requestLogger);
 
@@ -26,6 +36,8 @@ app.get('/api/health', async (_req, res) => {
 });
 
 app.use('/api/attendance', attendanceRoutes);
+
+app.use(pagesRoutes);
 
 app.use(errorHandler);
 

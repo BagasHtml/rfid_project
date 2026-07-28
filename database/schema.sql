@@ -1,4 +1,4 @@
-USE data_siswa;
+USE rfid_attendance;
 
 CREATE TABLE students (
     id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
