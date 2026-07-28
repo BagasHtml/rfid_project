@@ -3,6 +3,10 @@ let eventSource = null;
 let reconnectAttempts = 0;
 const MAX_RECONNECT = 10;
 
+const PER_PAGE = 10;
+let currentPage = 1; 
+let totalRows = 0;
+
 document.addEventListener('DOMContentLoaded', () => {
   setCurrentDate();
   loadAttendance();
@@ -15,14 +19,17 @@ function setCurrentDate() {
   document.getElementById('current-date').textContent = now.toLocaleDateString('id-ID', options);
 }
 
-async function loadAttendance() {
+async function loadAttendance(page = 1) {
   try {
-    const res = await fetch(`${API_BASE}/api/attendance/today`);
+    const offset = (page - 1) * PER_PAGE;
+    const res = await fetch(`${API_BASE}/api/attendance/today?limit=${PER_PAGE}&offset=${offset}`);
     const data = await res.json();
 
-    if (data.success && data.data.length > 0) {
+    if (data.success) {
+      currentPage = page;
+      totalRows = data.total;
       renderTable(data.data);
-      updateTotal(data.total);
+      renderPagination();
     }
   } catch (err) {
     console.error('Gagal memuat data:', err);
@@ -49,11 +56,51 @@ function buildRowHTML(row, index) {
 
 function renderTable(rows) {
   const tbody = document.getElementById('attendance-body');
-  tbody.innerHTML = rows.map((row, i) => `<tr>${buildRowHTML(row, i + 1)}</tr>`).join('');
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="6">Belum ada data absensi hari ini</td></tr>';
+    return;
+  }
+  const startIndex = (currentPage - 1) * PER_PAGE;
+  tbody.innerHTML = rows.map((row, i) => `<tr>${buildRowHTML(row, startIndex + i + 1)}</tr>`).join('');
 }
 
-function updateTotal(total) {
-  document.getElementById('total-count').textContent = `${total} hadir`;
+function renderPagination() {
+  const el = document.getElementById('pagination');
+  const totalPages = Math.ceil(totalRows / PER_PAGE);
+
+  if (totalPages <= 1) {
+    el.innerHTML = '';
+    return;
+  }
+
+  const start = (currentPage - 1) * PER_PAGE + 1;
+  const end = Math.min(currentPage * PER_PAGE, totalRows);
+
+  let pagesHTML = '';
+  for (let p = 1; p <= totalPages; p++) {
+    if (totalPages > 7) {
+      if (p === 1 || p === totalPages || (p >= currentPage - 1 && p <= currentPage + 1)) {
+        pagesHTML += `<button class="pagination-btn ${p === currentPage ? 'active' : ''}" onclick="loadAttendance(${p})">${p}</button>`;
+      } else if (p === currentPage - 2 || p === currentPage + 2) {
+        pagesHTML += '<span class="pagination-ellipsis">...</span>';
+      }
+    } else {
+      pagesHTML += `<button class="pagination-btn ${p === currentPage ? 'active' : ''}" onclick="loadAttendance(${p})">${p}</button>`;
+    }
+  }
+
+  el.innerHTML = `
+    <span class="pagination-info">${start}–${end} dari ${totalRows}</span>
+    <div class="pagination-controls">
+      <button class="pagination-btn" ${currentPage <= 1 ? 'disabled' : ''} onclick="loadAttendance(${currentPage - 1})">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg>
+      </button>
+      ${pagesHTML}
+      <button class="pagination-btn" ${currentPage >= totalPages ? 'disabled' : ''} onclick="loadAttendance(${currentPage + 1})">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
+      </button>
+    </div>
+  `;
 }
 
 function connectSSE() {
@@ -91,20 +138,9 @@ function connectSSE() {
 }
 
 function handleNewAttendance(data) {
-  const tbody = document.getElementById('attendance-body');
-  tbody.querySelector('.empty-row')?.remove();
-
-  const newRow = document.createElement('tr');
-  newRow.classList.add('new-entry');
-  newRow.innerHTML = buildRowHTML(data, tbody.querySelectorAll('tr').length + 1);
-
-  tbody.insertBefore(newRow, tbody.firstChild);
-
-  const totalEl = document.getElementById('total-count');
-  totalEl.textContent = `${(parseInt(totalEl.textContent) || 0) + 1} hadir`;
-
   showFlash('success', `${data.name} - ${data.status}`);
   showToast('success', data.name, `${data.class} | ${data.time} | ${data.status}`);
+  loadAttendance(1);
 }
 
 function handleDuplicateAttendance(data) {

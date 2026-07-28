@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sistem Absensi RFID</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
@@ -13,16 +16,14 @@
     <section class="scan-section">
       <div class="scan-card">
         <div class="scan-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="2" y="4" width="20" height="16" rx="2"/>
-            <line x1="6" y1="1" x2="6" y2="4"/>
-            <line x1="10" y1="1" x2="10" y2="4"/>
-            <line x1="14" y1="1" x2="14" y2="4"/>
-            <line x1="18" y1="1" x2="18" y2="4"/>
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z" />
           </svg>
         </div>
-        <p class="scan-text">Tempelkan kartu RFID untuk absen</p>
-        <div id="scan-result" class="scan-result hidden"></div>
+        <div class="scan-body">
+          <p class="scan-text">Tempelkan kartu RFID untuk absen</p>
+          <div id="scan-result" class="scan-result hidden"></div>
+        </div>
       </div>
     </section>
 
@@ -35,6 +36,8 @@
       </div>
 
       <%- include('partials/table') %>
+
+      <div class="pagination" id="pagination"></div>
     </section>
   </main>
 

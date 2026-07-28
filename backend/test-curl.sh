@@ -24,7 +24,7 @@ curl -s -X POST "$BASE_URL/api/attendance" \
   -d '{"uid":"0000000F51C5"}' | jq .
   curl -s -X POST "$BASE_URL/api/attendance" \
   -H "Content-Type: application/json" \
-  -d '{"uid":"04E5A0D3F7C1"}' | jq .
+  -d '{"uid":"0000000F479A"}' | jq .
 
 echo ""
 echo "=== 3. Absen — UID Sama (Duplikat, harus gagal) ==="
