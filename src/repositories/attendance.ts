@@ -73,8 +73,10 @@ export async function getTodayList(limit: number = 100, offset: number = 0): Pro
     WHERE date = CURDATE()
   `;
 
-  const [rows] = await pool.query<RowDataPacket[]>(dataQuery, [limit, offset]);
-  const [countResult] = await pool.query<RowDataPacket[]>(countQuery);
+  const [[rows], [countResult]] = await Promise.all([
+    pool.query<RowDataPacket[]>(dataQuery, [limit, offset]),
+    pool.query<RowDataPacket[]>(countQuery),
+  ])
 
   return {
     data: rows as AttendanceWithStudent[],

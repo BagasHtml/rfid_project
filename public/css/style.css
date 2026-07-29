@@ -1,7 +1,7 @@
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 
 :root {
-  --primary: #0D0C22;
+  --primary: #65a765;
   --secondary: #6E6D7A;
   --tertiary: #EA4C89;
   --neutral: #F7F7FB;
@@ -201,12 +201,14 @@ body {
   border-bottom: 1px solid var(--border);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  text-align: center;
 }
 
 .attendance-table td {
   padding: 12px 20px;
   border-bottom: 1px solid var(--border);
   font-size: 13px;
+  text-align: center;
 }
 
 .attendance-table tbody tr {

@@ -1,3 +1,5 @@
+document.getElementById('total-count').textContent = '0 hadir';
+
 const API_BASE = '';
 let eventSource = null;
 let reconnectAttempts = 0;
@@ -28,6 +30,7 @@ async function loadAttendance(page = 1) {
     if (data.success) {
       currentPage = page;
       totalRows = data.total;
+      document.getElementById('total-count').textContent = `${totalRows} hadir`;
       renderTable(data.data);
       renderPagination();
     }
