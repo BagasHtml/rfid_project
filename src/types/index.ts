@@ -46,6 +46,7 @@ export interface StudentInfo {
 export interface AttendanceResult {
   success: boolean;
   message: string;
+  statusCode: number;
   student?: StudentInfo;
   status?: AttendanceStatus;
   time?: string;
@@ -54,6 +55,7 @@ export interface AttendanceResult {
 export interface AttendanceDuplicate {
   is_duplicate: boolean;
   message: string;
+  statusCode: number;
   student?: StudentInfo;
   status?: AttendanceStatus;
   time?: string;

@@ -1,32 +1,12 @@
-import * as repo from '../repositories/attendance.js';
+import * as attendanceRepo from '../repositories/attendance.js';
+import * as cardRepo from '../repositories/card.js';
+import * as settingRepo from '../repositories/setting.js';
 import { broadcast } from '../sse/clients.js';
 import { env } from '../config/env.js';
+import { getCurrentTime, determineStatus } from '../utils/date.js';
+import { isDuplicateEntryError } from '../utils/error.js';
+import { buildStudentInfo } from '../utils/format.js';
 import type { AttendanceDuplicate, AttendanceResult, AttendanceStatus, CardWithStudent } from '../types/index.js';
-
-function determineStatus(currentTime: string, threshold: string): AttendanceStatus {
-  return currentTime <= threshold ? 'Tepat Waktu' : 'Terlambat';
-}
-
-function getCurrentTime(): string {
-  return new Date().toTimeString().slice(0, 8);
-}
-
-function isDuplicateEntryError(err: unknown): boolean {
-  return (
-    typeof err === 'object' &&
-    err !== null &&
-    'code' in err &&
-    (err as { code: string }).code === 'ER_DUP_ENTRY'
-  );
-}
-
-function buildStudentInfo(card: CardWithStudent) {
-  return {
-    name: card.student_name,
-    class: card.student_class,
-    nis: card.student_nis,
-  };
-}
 
 function handleDuplicate(card: CardWithStudent, status?: AttendanceStatus, time?: string): AttendanceDuplicate {
   const studentInfo = buildStudentInfo(card);
@@ -34,33 +14,34 @@ function handleDuplicate(card: CardWithStudent, status?: AttendanceStatus, time?
   return { 
     is_duplicate: true,
     message: 'Sudah absen hari ini',
+    statusCode: 409,
     student: studentInfo,
     status, time 
   };
 }
 
 export async function processAttendance(uid: string): Promise<AttendanceResult | AttendanceDuplicate> {
-  const card = await repo.findActiveCardByUid(uid);
+  const card = await cardRepo.findActiveByUid(uid);
 
   if (!card) {
-    return { success: false, message: 'Kartu tidak terdaftar' };
+    return { success: false, message: 'Kartu tidak terdaftar', statusCode: 404 };
   }
 
-  const existing = await repo.findTodayAttendance(card.student_id);
+  const existing = await attendanceRepo.findTodayAttendance(card.student_id);
 
   if (existing) {
     return handleDuplicate(card, existing.status, existing.time);
   }
 
-  const threshold = (await repo.getSetting('late_threshold')) ?? env.lateThreshold;
+  const threshold = (await settingRepo.get('late_threshold')) ?? env.lateThreshold;
   const time = getCurrentTime();
   const status = determineStatus(time, threshold);
 
   try {
-    await repo.insertAttendance(card.student_id, time, status);
+    await attendanceRepo.insertAttendance(card.student_id, time, status);
   } catch (err) {
     if (isDuplicateEntryError(err)) {
-      const duplicate = await repo.findTodayAttendance(card.student_id);
+      const duplicate = await attendanceRepo.findTodayAttendance(card.student_id);
       return handleDuplicate(card, duplicate?.status, duplicate?.time);
     }
     throw err;
@@ -73,6 +54,7 @@ export async function processAttendance(uid: string): Promise<AttendanceResult |
   return {
     success: true,
     message: 'Absensi berhasil',
+    statusCode: 200,
     student: studentInfo,
     status,
     time,
@@ -80,5 +62,5 @@ export async function processAttendance(uid: string): Promise<AttendanceResult |
 }
 
 export async function getTodayList(limit?: number, offset?: number) {
-  return repo.getTodayList(limit, offset);
+  return attendanceRepo.getTodayList(limit, offset);
 }

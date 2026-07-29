@@ -1,38 +1,40 @@
-import { pool } from '../config/db.js';
-import { RowDataPacket, ResultSetHeader } from 'mysql2';
-import type { CardWithStudent, AttendanceRecord, AttendanceWithStudent, AttendanceStatus } from '../types/index.js';
+import { eq, and, sql, desc } from 'drizzle-orm';
+import { db } from '../db/index.js';
+import { attendance, students } from '../db/schema.js';
+import type { AttendanceRecord, AttendanceWithStudent, AttendanceStatus } from '../types/index.js';
 
-export async function findActiveCardByUid(uid: string): Promise<CardWithStudent | null> {
-  const query = `
-    SELECT
-      c.uid,
-      c.student_id,
-      s.name AS student_name,
-      s.class AS student_class,
-      s.nis AS student_nis
-    FROM cards c
-    INNER JOIN students s ON s.id = c.student_id
-    WHERE c.uid = ?
-      AND c.is_active = TRUE
-      AND s.is_active = TRUE
-    LIMIT 1
-  `;
+function toDateStr(d: Date | string): string {
+  if (typeof d === 'string') return d.slice(0, 10);
+  return d.toISOString().slice(0, 10);
+}
 
-  const [rows] = await pool.query<RowDataPacket[]>(query, [uid]);
-  return (rows[0] as CardWithStudent) ?? null;
+function toTimeStr(t: Date | string): string {
+  if (typeof t === 'string') return t;
+  return t.toTimeString().slice(0, 8);
 }
 
 export async function findTodayAttendance(studentId: number): Promise<AttendanceRecord | null> {
-  const query = `
-    SELECT id, student_id, date, time, status
-    FROM attendance
-    WHERE student_id = ?
-      AND date = CURDATE()
-    LIMIT 1
-  `;
+  const rows = await db
+    .select({
+      id: attendance.id,
+      studentId: attendance.studentId,
+      date: attendance.date,
+      time: attendance.time,
+      status: attendance.status,
+    })
+    .from(attendance)
+    .where(and(eq(attendance.studentId, studentId), sql`date = CURDATE()`))
+    .limit(1);
 
-  const [rows] = await pool.query<RowDataPacket[]>(query, [studentId]);
-  return (rows[0] as AttendanceRecord) ?? null;
+  if (rows.length === 0) return null;
+
+  return {
+    id: rows[0].id,
+    student_id: rows[0].studentId,
+    date: toDateStr(rows[0].date),
+    time: toTimeStr(rows[0].time),
+    status: rows[0].status as AttendanceStatus,
+  };
 }
 
 export async function insertAttendance(
@@ -40,52 +42,51 @@ export async function insertAttendance(
   time: string,
   status: AttendanceStatus
 ): Promise<number> {
-  const query = `
-    INSERT INTO attendance (student_id, date, time, status)
-    VALUES (?, CURDATE(), ?, ?)
-  `;
+  const [header] = await db.insert(attendance).values({
+    studentId,
+    date: sql`CURDATE()`,
+    time,
+    status,
+  }).then(r => r as unknown as [import('mysql2/promise').ResultSetHeader]);
 
-  const [result] = await pool.query<ResultSetHeader>(query, [studentId, time, status]);
-  return result.insertId;
+  return header.insertId;
 }
 
 export async function getTodayList(limit: number = 100, offset: number = 0): Promise<{ data: AttendanceWithStudent[]; total: number }> {
-  const dataQuery = `
-    SELECT
-      a.id,
-      a.student_id,
-      a.date,
-      a.time,
-      a.status,
-      s.name AS student_name,
-      s.class AS student_class,
-      s.nis AS student_nis
-    FROM attendance a
-    INNER JOIN students s ON s.id = a.student_id
-    WHERE a.date = CURDATE()
-    ORDER BY a.time DESC
-    LIMIT ? OFFSET ?
-  `;
+  const rows = await db
+    .select({
+      id: attendance.id,
+      studentId: attendance.studentId,
+      date: attendance.date,
+      time: attendance.time,
+      status: attendance.status,
+      studentName: students.name,
+      studentClass: students.class,
+      studentNis: students.nis,
+    })
+    .from(attendance)
+    .innerJoin(students, eq(attendance.studentId, students.id))
+    .where(sql`${attendance.date} = CURDATE()`)
+    .orderBy(desc(attendance.time))
+    .limit(limit)
+    .offset(offset);
 
-  const countQuery = `
-    SELECT COUNT(*) AS total
-    FROM attendance
-    WHERE date = CURDATE()
-  `;
-
-  const [[rows], [countResult]] = await Promise.all([
-    pool.query<RowDataPacket[]>(dataQuery, [limit, offset]),
-    pool.query<RowDataPacket[]>(countQuery),
-  ])
+  const countResult = await db
+    .select({ total: sql<number>`COUNT(*)` })
+    .from(attendance)
+    .where(sql`date = CURDATE()`);
 
   return {
-    data: rows as AttendanceWithStudent[],
-    total: (countResult[0] as { total: number }).total,
+    data: rows.map(r => ({
+      id: r.id,
+      student_id: r.studentId,
+      date: toDateStr(r.date),
+      time: toTimeStr(r.time),
+      status: r.status as AttendanceStatus,
+      student_name: r.studentName,
+      student_class: r.studentClass,
+      student_nis: r.studentNis,
+    })),
+    total: Number(countResult[0].total),
   };
-}
-
-export async function getSetting(key: string): Promise<string | null> {
-  const query = `SELECT value FROM settings WHERE \`key\` = ? LIMIT 1`;
-  const [rows] = await pool.query<RowDataPacket[]>(query, [key]);
-  return rows[0]?.value ?? null;
 }

@@ -1,3 +1,5 @@
+let selfHandled = false;
+
 document.getElementById('total-count').textContent = '0 hadir';
 
 const API_BASE = '';
@@ -121,11 +123,14 @@ function connectSSE() {
   };
 
   eventSource.addEventListener('attendance:new', (event) => {
-    handleNewAttendance(JSON.parse(event.data));
+    const data = JSON.parse(event.data);
+    if (!selfHandled) handleNewAttendance(data);
+    else loadAttendance(1);
   });
 
   eventSource.addEventListener('attendance:duplicate', (event) => {
-    handleDuplicateAttendance(JSON.parse(event.data));
+    const data = JSON.parse(event.data);
+    if (!selfHandled) handleDuplicateAttendance(data);
   });
 
   eventSource.onerror = () => {
@@ -195,3 +200,76 @@ function updateConnectionStatus(status) {
     connecting: 'Menyambung...',
   }[status] || status;
 }
+
+let uidBuffer = '';
+let uidEntered = false;
+
+const rfidInput = document.getElementById('rfid-input');
+
+function focusRfidInput() {
+  if (rfidInput && document.activeElement !== rfidInput) {
+    rfidInput.focus();
+  }
+}
+
+rfidInput.addEventListener('blur', () => {
+  setTimeout(focusRfidInput, 10);
+});
+
+rfidInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (uidBuffer.length >= 8) {
+      submitUID(uidBuffer);
+    }
+    uidBuffer = '';
+    return;
+  }
+
+  if (/^[0-9A-Fa-f]$/.test(e.key)) {
+    uidBuffer += e.key.toUpperCase();
+  } else {
+    uidBuffer = '';
+  }
+});
+
+document.addEventListener('DOMContentLoaded', focusRfidInput);
+
+async function submitUID(uid) {
+  uidEntered = true;
+  try {
+    const res = await fetch(`${API_BASE}/api/attendance`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uid }),
+    });
+    const data = await res.json();
+
+    if (data.is_duplicate) {
+      showFlash('duplicate', `${data.student?.name || ''} sudah absen pada ${data.time}`);
+      showToast('duplicate', data.student?.name || '', `Sudah absen pada ${data.time} | ${data.status}`);
+    } else if (data.success && data.student) {
+      showFlash('success', `${data.student.name} - ${data.status}`);
+      showToast('success', data.student.name, `${data.student.class} | ${data.time} | ${data.status}`);
+      loadAttendance(1);
+    } else {
+      showFlash('error', data.message || 'Gagal');
+    }
+  } catch (err) {
+    showFlash('error', 'Gagal terhubung ke server');
+  } finally {
+    setTimeout(() => { uidEntered = false; }, 2000);
+    setTimeout(focusRfidInput, 50);
+  }
+}
+
+const origHandleNew = handleNewAttendance;
+const origHandleDup = handleDuplicateAttendance;
+handleNewAttendance = function(data) {
+  if (uidEntered) { loadAttendance(1); return; }
+  origHandleNew(data);
+};
+handleDuplicateAttendance = function(data) {
+  if (uidEntered) return;
+  origHandleDup(data);
+};
