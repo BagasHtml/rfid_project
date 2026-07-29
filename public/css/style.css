@@ -1,19 +1,21 @@
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 
 :root {
-  --primary: #65a765;
-  --secondary: #6E6D7A;
-  --tertiary: #EA4C89;
-  --neutral: #F7F7FB;
+  --primary: #2E7D32;
+  --primary-dark: #1B5E20;
+  --primary-light: #4CAF50;
+  --secondary: #546E7A;
+  --neutral: #F5F5F5;
   --surface: #FFFFFF;
-  --on-surface: #0D0C22;
-  --muted-surface: #F3F3F6;
-  --border: #E7E7E9;
-  --border-strong: #E5E7EB;
-  --accent: #FFECF3;
-  --error: #E5484D;
-  --success: #12B76A;
-  --warning: #F59E0B;
+  --on-surface: #263238;
+  --muted-surface: #EEEEEE;
+  --border: #CFD8DC;
+  --border-strong: #B0BEC5;
+  --accent: #FFD600;
+  --accent-bg: #FFF8E1;
+  --error: #D32F2F;
+  --success: #2E7D32;
+  --warning: #F57C00;
   --font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --rounded-sm: 4px;
   --rounded-md: 8px;
@@ -25,7 +27,7 @@
 body {
   font-family: var(--font-family);
   background: var(--neutral);
-  color: var(--primary);
+  color: var(--on-surface);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   font-size: 14px;
@@ -33,7 +35,7 @@ body {
 
 /* Header */
 .header {
-  background: var(--primary);
+  background: linear-gradient(135deg, var(--primary-dark), var(--primary));
   color: var(--surface);
   padding: 14px 36px;
   position: sticky;
@@ -90,8 +92,8 @@ body {
 }
 
 .scan-card.active {
-  border-color: var(--tertiary);
-  background: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-bg);
 }
 
 .scan-card.success {
@@ -116,7 +118,7 @@ body {
   color: var(--secondary);
 }
 
-.scan-card.active .scan-icon { color: var(--tertiary); }
+.scan-card.active .scan-icon { color: var(--accent); }
 .scan-card.success .scan-icon { color: var(--success); }
 .scan-card.error .scan-icon { color: var(--error); }
 .scan-card.duplicate .scan-icon { color: var(--warning); }
@@ -144,7 +146,7 @@ body {
 
 .scan-result.success { background: #ECFDF3; color: #027A48; }
 .scan-result.error { background: #FEF3F2; color: #B42318; }
-.scan-result.info { background: #EFF8FF; color: #175CD3; }
+.scan-result.info { background: var(--accent-bg); color: #F57F17; }
 .scan-result.duplicate { background: #FFFBEB; color: #92400E; }
 
 .hidden { display: none; }
@@ -169,12 +171,12 @@ body {
 .section-header h2 {
   font-size: 15px;
   font-weight: 600;
-  color: var(--primary);
+  color: var(--on-surface);
 }
 
 .stat-badge {
   background: var(--primary);
-  color: var(--surface);
+  color: #fff;
   padding: 4px 12px;
   border-radius: var(--rounded-full);
   font-size: 12px;
@@ -224,7 +226,7 @@ body {
 }
 
 @keyframes highlightRow {
-  from { background: var(--accent); }
+  from { background: var(--accent-bg); }
   to { background: transparent; }
 }
 
@@ -246,7 +248,7 @@ body {
   font-weight: 500;
 }
 
-.status-badge.tepat-waktu { background: #ECFDF3; color: #027A48; }
+.status-badge.tepat-waktu { background: #E8F5E9; color: var(--primary); }
 .status-badge.terlambat { background: #FEF3F2; color: #B42318; }
 
 /* Pagination */
@@ -278,25 +280,25 @@ body {
   border-radius: var(--rounded-md);
   border: 1px solid var(--border);
   background: var(--surface);
-  color: var(--primary);
+  color: var(--on-surface);
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition: all 0.15s;
   font-size: 13px;
 }
 
 .pagination-btn:hover:not(:disabled) {
-  background: var(--neutral);
-  border-color: var(--border-strong);
+  background: var(--accent-bg);
+  border-color: var(--accent);
 }
 
 .pagination-btn:disabled {
-  opacity: 0.4;
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
 .pagination-btn.active {
   background: var(--primary);
-  color: var(--surface);
+  color: #fff;
   border-color: var(--primary);
 }
 
@@ -371,14 +373,14 @@ body {
 
 .toast.success { border-left: 3px solid var(--success); }
 .toast.error { border-left: 3px solid var(--error); }
-.toast.info { border-left: 3px solid var(--tertiary); }
+.toast.info { border-left: 3px solid var(--accent); }
 .toast.duplicate { border-left: 3px solid var(--warning); }
 
 .toast-name {
   font-weight: 600;
   font-size: 13px;
   margin-bottom: 2px;
-  color: var(--primary);
+  color: var(--on-surface);
 }
 
 .toast-detail {
