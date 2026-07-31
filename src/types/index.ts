@@ -60,3 +60,19 @@ export interface AttendanceDuplicate {
   status?: AttendanceStatus;
   time?: string;
 }
+
+export interface RegisterCardResult {
+  success: boolean;
+  message: string;
+  statusCode: number;
+  student?: StudentInfo;
+}
+
+export interface CardRecord {
+  id: number;
+  uid: string;
+  is_active: boolean;
+  student_name: string;
+  student_class: string;
+  student_nis: string;
+}

@@ -1,5 +1,4 @@
 import { mysqlTable, int, varchar, date, time, boolean, uniqueIndex } from 'drizzle-orm/mysql-core';
-
 export const students = mysqlTable('students', {
   id: int('id').primaryKey().autoincrement(),
   nis: varchar('nis', { length: 32 }).notNull(),
@@ -13,12 +12,14 @@ export const cards = mysqlTable('cards', {
   uid: varchar('uid', { length: 32 }).notNull(),
   studentId: int('student_id').notNull(),
   isActive: boolean('is_active').notNull().default(true),
-});
+}, (table) => ({
+  uidUnique: uniqueIndex('uq_cards_uid').on(table.uid),
+}));
 
 export const attendance = mysqlTable('attendance', {
   id: int('id').primaryKey().autoincrement(),
   studentId: int('student_id').notNull(),
-  date: date('date').notNull(),
+  date: date('date', { mode: 'string' }).notNull(),
   time: time('time').notNull(),
   status: varchar('status', { length: 20 }).notNull(),
 }, (table) => ({

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pendaftaran Kartu RFID</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <%- include('partials/header') %>
+
+  <main class="container">
+    <div class="page-nav">
+      <a href="/" class="back-link">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"/></svg>
+        Kembali ke Absensi
+      </a>
+    </div>
+
+    <div class="register-grid">
+      <section class="scan-card register-scan" id="scan-card">
+        <div class="scan-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z" />
+          </svg>
+        </div>
+        <div class="scan-body">
+          <p class="scan-text">Tempelkan kartu RFID untuk mendaftarkan</p>
+          <div id="scan-result" class="scan-result hidden"></div>
+        </div>
+      </section>
+
+      <section class="register-card">
+        <div class="section-header">
+          <h2>Daftarkan Kartu</h2>
+        </div>
+        <div class="register-form">
+          <div class="form-field">
+            <label for="uid-display">UID Kartu</label>
+            <div id="uid-display" class="uid-display placeholder">Belum ada kartu dipindai</div>
+          </div>
+          <div class="form-field">
+            <label for="student-select">Siswa</label>
+            <select id="student-select">
+              <option value="">Pilih siswa...</option>
+            </select>
+          </div>
+          <button id="register-btn" class="btn-primary" disabled>Daftarkan</button>
+        </div>
+      </section>
+    </div>
+
+    <input type="text" id="rfid-input" autocomplete="off" style="position:fixed;left:-9999px;width:1px;height:1px;opacity:0" aria-hidden="true">
+
+    <section class="attendance-section">
+      <div class="section-header">
+        <h2>Kartu Terdaftar</h2>
+        <span class="stat-badge" id="recent-count">0 kartu</span>
+      </div>
+      <div class="table-wrapper">
+        <table class="attendance-table">
+          <thead>
+            <tr>
+              <th>UID</th>
+              <th>NIS</th>
+              <th>Nama</th>
+              <th>Kelas</th>
+            </tr>
+          </thead>
+          <tbody id="recent-body">
+            <tr class="empty-row"><td colspan="4">Belum ada kartu terdaftar</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="/js/register.js"></script>
+</body>
+</html>

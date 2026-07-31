@@ -11,73 +11,54 @@ import cardsRoutes from './routes/cards.js';
 import studentsRoutes from './routes/students.js';
 import pagesRoutes from './routes/pages.js';
 import helmet from 'helmet';
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
 const app = express();
-
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
-
 app.use(cors({
-  origin: env.corsOrigin,
+    origin: env.corsOrigin,
 }));
-
 app.use(express.static(path.join(__dirname, '..', 'public')));
-
 app.use(requestLogger);
-
 app.use(express.json({ limit: '1kb' }));
-
 app.use(helmet());
-
 app.get('/api/health', async (_req, res) => {
-  try {
-    await pool.query('SELECT 1');
-    res.json({ status: 'aman', db: 'tersambung', timestamp: new Date().toISOString() });
-  } catch {
-    res.status(503).json({ status: 'error', db: 'disconnected', timestamp: new Date().toISOString() });
-  }
+    try {
+        await pool.query('SELECT 1');
+        res.json({ status: 'aman', db: 'tersambung', timestamp: new Date().toISOString() });
+    }
+    catch {
+        res.status(503).json({ status: 'error', db: 'disconnected', timestamp: new Date().toISOString() });
+    }
 });
-
-
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/cards', cardsRoutes);
 app.use('/api/students', studentsRoutes);
-
 app.use(pagesRoutes);
-
 app.use(errorHandler);
-
 const server = app.listen(env.port, () => {
-  console.log(`Server running on http://localhost:${env.port}`);
+    console.log(`Server running on http://localhost:${env.port}`);
 });
-
 const SHUTDOWN_TIMEOUT = 10_000;
-
-async function shutdown(signal: string) {
-  console.log(`\n${signal} received. Shutting down gracefully...`);
-
-  const forceExit = setTimeout(() => {
-    console.error(`Forced exit after ${SHUTDOWN_TIMEOUT}ms timeout`);
-    process.exit(1);
-  }, SHUTDOWN_TIMEOUT);
-  forceExit.unref();
-
-  server.close(() => {
-    console.log('HTTP server closed.');
-  });
-
-  try {
-    await pool.end();
-    console.log('Database pool closed.');
-  } catch (err) {
-    console.error('Error closing database pool:', err);
-  }
-
-  clearTimeout(forceExit);
-  process.exit(0);
+async function shutdown(signal) {
+    console.log(`\n${signal} received. Shutting down gracefully...`);
+    const forceExit = setTimeout(() => {
+        console.error(`Forced exit after ${SHUTDOWN_TIMEOUT}ms timeout`);
+        process.exit(1);
+    }, SHUTDOWN_TIMEOUT);
+    forceExit.unref();
+    server.close(() => {
+        console.log('HTTP server closed.');
+    });
+    try {
+        await pool.end();
+        console.log('Database pool closed.');
+    }
+    catch (err) {
+        console.error('Error closing database pool:', err);
+    }
+    clearTimeout(forceExit);
+    process.exit(0);
 }
-
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));

@@ -3,7 +3,7 @@ import * as cardRepo from '../repositories/card.js';
 import * as settingRepo from '../repositories/setting.js';
 import { broadcast } from '../sse/clients.js';
 import { env } from '../config/env.js';
-import { getCurrentTime, determineStatus } from '../utils/date.js';
+import { getCurrentDate, getCurrentTime, determineStatus } from '../utils/date.js';
 import { isDuplicateEntryError } from '../utils/error.js';
 import { buildStudentInfo } from '../utils/format.js';
 import type { AttendanceDuplicate, AttendanceResult, AttendanceStatus, CardWithStudent } from '../types/index.js';
@@ -27,7 +27,8 @@ export async function processAttendance(uid: string): Promise<AttendanceResult |
     return { success: false, message: 'Kartu tidak terdaftar', statusCode: 404 };
   }
 
-  const existing = await attendanceRepo.findTodayAttendance(card.student_id);
+  const date = getCurrentDate();
+  const existing = await attendanceRepo.findTodayAttendance(card.student_id, date);
 
   if (existing) {
     return handleDuplicate(card, existing.status, existing.time);
@@ -38,10 +39,10 @@ export async function processAttendance(uid: string): Promise<AttendanceResult |
   const status = determineStatus(time, threshold);
 
   try {
-    await attendanceRepo.insertAttendance(card.student_id, time, status);
+    await attendanceRepo.insertAttendance(card.student_id, date, time, status);
   } catch (err) {
     if (isDuplicateEntryError(err)) {
-      const duplicate = await attendanceRepo.findTodayAttendance(card.student_id);
+      const duplicate = await attendanceRepo.findTodayAttendance(card.student_id, date);
       return handleDuplicate(card, duplicate?.status, duplicate?.time);
     }
     throw err;
@@ -62,5 +63,6 @@ export async function processAttendance(uid: string): Promise<AttendanceResult |
 }
 
 export async function getTodayList(limit?: number, offset?: number) {
-  return attendanceRepo.getTodayList(limit, offset);
+  const date = getCurrentDate();
+  return attendanceRepo.getTodayList(date, limit, offset);
 }

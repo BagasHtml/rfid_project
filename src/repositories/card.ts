@@ -1,7 +1,56 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { cards, students } from '../db/schema.js';
-import type { CardWithStudent } from '../types/index.js';
+import type { CardWithStudent, CardRecord } from '../types/index.js';
+
+export async function findByUid(uid: string): Promise<{ uid: string; student_id: number } | null> {
+  const rows = await db
+    .select({
+      uid: cards.uid,
+      studentId: cards.studentId,
+    })
+    .from(cards)
+    .where(eq(cards.uid, uid))
+    .limit(1);
+
+  if (rows.length === 0) return null;
+
+  return { uid: rows[0].uid, student_id: rows[0].studentId };
+}
+
+export async function insertCard(uid: string, studentId: number): Promise<number> {
+  const [header] = await db.insert(cards).values({
+    uid,
+    studentId,
+  }).then(r => r as unknown as [import('mysql2/promise').ResultSetHeader]);
+
+  return header.insertId;
+}
+
+export async function listRecent(limit: number = 20): Promise<CardRecord[]> {
+  const rows = await db
+    .select({
+      id: cards.id,
+      uid: cards.uid,
+      isActive: cards.isActive,
+      studentName: students.name,
+      studentClass: students.class,
+      studentNis: students.nis,
+    })
+    .from(cards)
+    .innerJoin(students, eq(cards.studentId, students.id))
+    .orderBy(desc(cards.id))
+    .limit(limit);
+
+  return rows.map(r => ({
+    id: r.id,
+    uid: r.uid,
+    is_active: r.isActive,
+    student_name: r.studentName,
+    student_class: r.studentClass,
+    student_nis: r.studentNis,
+  }));
+}
 
 export async function findActiveByUid(uid: string): Promise<CardWithStudent | null> {
   const rows = await db

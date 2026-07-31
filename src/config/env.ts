@@ -1,30 +1,61 @@
 import dotenv from 'dotenv';
+import { z } from 'zod';
 
 dotenv.config();
 
 const isProduction = process.env.NODE_ENV === 'production';
 
-function requireEnv(key: string, fallback?: string): string {
-  const value = process.env[key] ?? fallback;
-  if (value === undefined || value === '') {
-    if (isProduction) {
-      throw new Error(`[ENV ERROR] Missing required variable: ${key}. Set it in .env or environment.`);
-    }
-    console.warn(`[ENV WARN] ${key} not set, using default.`);
+function envString(key: string, devDefault: string) {
+  if (isProduction) {
+    return z.string().min(1, {
+      message: `[ENV ERROR] Missing required variable: ${key}. Set it in .env or environment.`,
+    });
   }
-  return value ?? '';
+  return z.string().min(1).default(devDefault);
+}
+
+const EnvSchema = z.object({
+  PORT: z.coerce.number().int().positive().default(3000),
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  CORS_ORIGIN: envString('CORS_ORIGIN', 'http://localhost:4321'),
+  DB_HOST: envString('DB_HOST', 'localhost'),
+  DB_PORT: z.coerce.number().int().positive().default(3306),
+  DB_USER: envString('DB_USER', 'root'),
+  DB_PASSWORD: isProduction
+    ? z.string().min(1, {
+        message: '[ENV ERROR] Missing required variable: DB_PASSWORD. Set it in .env or environment.',
+      })
+    : z.string().optional().default(''),
+  DB_NAME: envString('DB_NAME', 'rfid_attendance'),
+  LATE_THRESHOLD: z
+    .string()
+    .regex(/^\d{2}:\d{2}:\d{2}$/, 'LATE_THRESHOLD harus format HH:MM:SS')
+    .default('07:00:00'),
+});
+
+const parsed = EnvSchema.safeParse(process.env);
+
+if (!parsed.success) {
+  const messages = parsed.error.issues
+    .map(issue => `- ${issue.path.join('.')}: ${issue.message}`)
+    .join('\n');
+  throw new Error(`[ENV ERROR] Konfigurasi lingkungan tidak valid:\n${messages}`);
+}
+
+if (!isProduction && parsed.data.DB_PASSWORD === '') {
+  console.warn('[ENV WARN] DB_PASSWORD tidak diatur. Pastikan ini disengaja (MySQL tanpa password).');
 }
 
 export const env = {
-  port: Number(process.env.PORT) || 3000,
-  nodeEnv: process.env.NODE_ENV || 'development',
-  corsOrigin: requireEnv('CORS_ORIGIN', 'http://localhost:4321'),
+  port: parsed.data.PORT,
+  nodeEnv: parsed.data.NODE_ENV,
+  corsOrigin: parsed.data.CORS_ORIGIN,
   db: {
-    host: requireEnv('DB_HOST', 'localhost'),
-    port: Number(process.env.DB_PORT) || 3306,
-    user: requireEnv('DB_USER', 'root'),
-    password: requireEnv('DB_PASSWORD', ''),
-    name: requireEnv('DB_NAME', 'rfid_attendance'),
+    host: parsed.data.DB_HOST,
+    port: parsed.data.DB_PORT,
+    user: parsed.data.DB_USER,
+    password: parsed.data.DB_PASSWORD,
+    name: parsed.data.DB_NAME,
   },
-  lateThreshold: process.env.LATE_THRESHOLD || '07:00:00',
+  lateThreshold: parsed.data.LATE_THRESHOLD,
 } as const;
