@@ -1,7 +1,7 @@
 export function errorHandler(err, _req, res, _next) {
     const errorId = `ERR_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
     console.error(`[${errorId}] ${err.message}`);
-    const connectionErrors = ['ECONNREFUSED', 'PROTOCOL_CONNECTION_LOST', 'ENOTFOUND'];
+    const connectionErrors = ['ECONNREFUSED', 'PROTOCOL_CONNECTION_LOST', 'ENOTFOUND', 'POOL_ENQUEUELIMIT', 'ECONNRESET'];
     if (connectionErrors.includes(err.code ?? '')) {
         res.status(503).json({
             success: false,

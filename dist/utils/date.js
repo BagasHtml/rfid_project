@@ -1,12 +1,22 @@
+import { env } from '../config/env.js';
+const dateFormatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: env.timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+});
+const timeFormatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone: env.timezone,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+});
 export function getCurrentDate() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    return dateFormatter.format(new Date());
 }
 export function getCurrentTime() {
-    return new Date().toTimeString().slice(0, 8);
+    return timeFormatter.format(new Date());
 }
 export function determineStatus(currentTime, threshold) {
     return currentTime <= threshold ? 'Tepat Waktu' : 'Terlambat';

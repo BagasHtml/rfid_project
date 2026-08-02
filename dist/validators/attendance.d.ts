@@ -7,5 +7,4 @@ export declare const GetTodayQuerySchema: z.ZodObject<{
     limit: z.ZodDefault<z.ZodCoercedNumber<unknown>>;
     offset: z.ZodDefault<z.ZodCoercedNumber<unknown>>;
 }, z.core.$strip>;
-export type PostAttendanceInput = z.infer<typeof PostAttendanceSchema>;
 export type GetTodayQueryInput = z.infer<typeof GetTodayQuerySchema>;

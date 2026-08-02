@@ -12,16 +12,17 @@ import studentsRoutes from './routes/students.js';
 import pagesRoutes from './routes/pages.js';
 import helmet from 'helmet';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const projectRoot = path.join(__dirname, '..');
 const app = express();
 app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
+app.set('views', path.join(projectRoot, 'src', 'views'));
+app.use(helmet());
 app.use(cors({
     origin: env.corsOrigin,
 }));
-app.use(express.static(path.join(__dirname, '..', 'public')));
+app.use(express.static(path.join(projectRoot, 'public')));
 app.use(requestLogger);
 app.use(express.json({ limit: '1kb' }));
-app.use(helmet());
 app.get('/api/health', async (_req, res) => {
     try {
         await pool.query('SELECT 1');
@@ -34,6 +35,9 @@ app.get('/api/health', async (_req, res) => {
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/cards', cardsRoutes);
 app.use('/api/students', studentsRoutes);
+app.use('/api', (_req, res) => {
+    res.status(404).json({ success: false, message: 'Endpoint tidak ditemukan' });
+});
 app.use(pagesRoutes);
 app.use(errorHandler);
 const server = app.listen(env.port, () => {

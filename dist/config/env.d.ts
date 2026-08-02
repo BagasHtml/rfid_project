@@ -10,4 +10,5 @@ export declare const env: {
         readonly name: string;
     };
     readonly lateThreshold: string;
+    readonly timezone: string;
 };

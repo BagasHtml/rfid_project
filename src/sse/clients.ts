@@ -22,7 +22,7 @@ function startHeartbeat() {
     const deadClients: string[] = [];
 
     for (const [id, client] of clients) {
-      if (now - client.lastHeartbeat > CONNECTION_TIMEOUT) {
+      if (now - client.lastHeartbeat > CONNECTION_TIMEOUT || client.res.writableEnded) {
         deadClients.push(id);
         continue;
       }
@@ -73,15 +73,14 @@ export function registerClient(req: Request, res: Response): void {
   clients.set(id, client);
   startHeartbeat();
 
-  req.on('close', () => {
+  const removeClient = () => {
     clients.delete(id);
     stopHeartbeatIfEmpty();
-  });
+  };
 
-  req.on('error', () => {
-    clients.delete(id);
-    stopHeartbeatIfEmpty();
-  });
+  req.on('close', removeClient);
+  req.on('error', removeClient);
+  res.on('close', removeClient);
 }
 
 export function broadcast(event: string, data: unknown): void {
@@ -89,6 +88,11 @@ export function broadcast(event: string, data: unknown): void {
   const deadClients: string[] = [];
 
   for (const [id, client] of clients) {
+    if (client.res.writableEnded) {
+      deadClients.push(id);
+      continue;
+    }
+
     try {
       client.res.write(payload);
       client.lastHeartbeat = Date.now();
@@ -104,6 +108,4 @@ export function broadcast(event: string, data: unknown): void {
   stopHeartbeatIfEmpty();
 }
 
-export function getClientCount(): number {
-  return clients.size;
-}
+

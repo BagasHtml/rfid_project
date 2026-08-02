@@ -15,5 +15,4 @@ export const GetTodayQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).default(0),
 });
 
-export type PostAttendanceInput = z.infer<typeof PostAttendanceSchema>;
 export type GetTodayQueryInput = z.infer<typeof GetTodayQuerySchema>;

@@ -15,7 +15,7 @@ export function errorHandler(
 
   console.error(`[${errorId}] ${err.message}`);
 
-  const connectionErrors = ['ECONNREFUSED', 'PROTOCOL_CONNECTION_LOST', 'ENOTFOUND'];
+  const connectionErrors = ['ECONNREFUSED', 'PROTOCOL_CONNECTION_LOST', 'ENOTFOUND', 'POOL_ENQUEUELIMIT', 'ECONNRESET'];
 
   if (connectionErrors.includes(err.code ?? '')) {
     res.status(503).json({

@@ -1,16 +1,3 @@
-export interface Student {
-    id: number;
-    nis: string;
-    name: string;
-    class: string;
-    is_active: boolean;
-}
-export interface Card {
-    id: number;
-    uid: string;
-    student_id: number;
-    is_active: boolean;
-}
 export interface AttendanceRecord {
     id: number;
     student_id: number;

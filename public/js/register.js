@@ -126,7 +126,7 @@ registerBtn.addEventListener('click', async () => {
     const data = await res.json();
 
     if (data.success) {
-      const studentName = data.student?.name || studentSelect.selectedOptions[0]?.textContent || '';
+      const studentName = data.student?.name || '';
       showResult('success', `${data.message}: ${studentName}`);
       showToast('success', 'Kartu terdaftar', `${scannedUid} -> ${studentName}`);
       scannedUid = '';

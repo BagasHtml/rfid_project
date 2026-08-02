@@ -31,6 +31,11 @@ const EnvSchema = z.object({
     .string()
     .regex(/^\d{2}:\d{2}:\d{2}$/, 'LATE_THRESHOLD harus format HH:MM:SS')
     .default('07:00:00'),
+  APP_TIMEZONE: z
+    .string()
+    .trim()
+    .optional()
+    .transform(v => (v ? v : 'Asia/Jakarta')),
 });
 
 const parsed = EnvSchema.safeParse(process.env);
@@ -46,6 +51,14 @@ if (!isProduction && parsed.data.DB_PASSWORD === '') {
   console.warn('[ENV WARN] DB_PASSWORD tidak diatur. Pastikan ini disengaja (MySQL tanpa password).');
 }
 
+try {
+  new Intl.DateTimeFormat('en-GB', { timeZone: parsed.data.APP_TIMEZONE });
+} catch {
+  throw new Error(
+    `[ENV ERROR] APP_TIMEZONE tidak valid: "${parsed.data.APP_TIMEZONE}". Gunakan nama zona IANA (mis. Asia/Jakarta).`
+  );
+}
+
 export const env = {
   port: parsed.data.PORT,
   nodeEnv: parsed.data.NODE_ENV,
@@ -58,4 +71,5 @@ export const env = {
     name: parsed.data.DB_NAME,
   },
   lateThreshold: parsed.data.LATE_THRESHOLD,
+  timezone: parsed.data.APP_TIMEZONE,
 } as const;

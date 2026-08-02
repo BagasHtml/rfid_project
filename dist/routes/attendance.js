@@ -3,9 +3,10 @@ import * as service from '../services/attendance.js';
 import { registerClient } from '../sse/clients.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { validate, validateQuery } from '../middleware/validate.js';
+import { attendanceUidLimiter, attendanceIpLimiter } from '../middleware/rateLimit.js';
 import { PostAttendanceSchema, GetTodayQuerySchema } from '../validators/attendance.js';
 const router = Router();
-router.post('/', validate(PostAttendanceSchema), asyncHandler(async (req, res) => {
+router.post('/', validate(PostAttendanceSchema), attendanceUidLimiter, attendanceIpLimiter, asyncHandler(async (req, res) => {
     const result = await service.processAttendance(req.body.uid);
     res.status(result.statusCode).json(result);
 }));

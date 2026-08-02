@@ -10,8 +10,6 @@ export const RegisterCardSchema = z.object({
   student_id: z.coerce.number().int().positive('ID siswa tidak valid'),
 });
 
-export type RegisterCardInput = z.infer<typeof RegisterCardSchema>;
-
 export const GetRecentCardsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });

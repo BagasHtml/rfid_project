@@ -1,11 +1,8 @@
-let selfHandled = false;
-
 document.getElementById('total-count').textContent = '0 hadir';
 
 const API_BASE = '';
 let eventSource = null;
 let reconnectAttempts = 0;
-const MAX_RECONNECT = 10;
 
 const PER_PAGE = 10;
 let currentPage = 1; 
@@ -124,31 +121,65 @@ function connectSSE() {
 
   eventSource.addEventListener('attendance:new', (event) => {
     const data = JSON.parse(event.data);
-    if (!selfHandled) handleNewAttendance(data);
-    else loadAttendance(1);
+    handleNewAttendance(data);
   });
 
   eventSource.addEventListener('attendance:duplicate', (event) => {
     const data = JSON.parse(event.data);
-    if (!selfHandled) handleDuplicateAttendance(data);
+    handleDuplicateAttendance(data);
   });
 
   eventSource.onerror = () => {
     updateConnectionStatus('disconnected');
     eventSource.close();
+    eventSource = null;
 
-    if (reconnectAttempts < MAX_RECONNECT) {
-      reconnectAttempts++;
-      const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
-      setTimeout(connectSSE, delay);
-    }
+    reconnectAttempts++;
+    const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+    setTimeout(connectSSE, delay);
   };
 }
 
 function handleNewAttendance(data) {
   showFlash('success', `${data.name} - ${data.status}`);
   showToast('success', data.name, `${data.class} | ${data.time} | ${data.status}`);
-  loadAttendance(1);
+  prependAttendance(data);
+}
+
+let refreshTimer = null;
+function refreshAttendance() {
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(() => loadAttendance(currentPage), 300);
+}
+
+function prependAttendance(data) {
+  totalRows += 1;
+  document.getElementById('total-count').textContent = `${totalRows} hadir`;
+
+  if (currentPage !== 1) {
+    renderPagination();
+    return;
+  }
+
+  const tbody = document.getElementById('attendance-body');
+  const emptyRow = tbody.querySelector('.empty-row');
+  if (emptyRow) tbody.innerHTML = '';
+
+  const tr = document.createElement('tr');
+  tr.innerHTML = buildRowHTML({
+    student_nis: data.nis,
+    student_name: data.name,
+    student_class: data.class,
+    time: data.time,
+    status: data.status,
+  }, 1);
+  tbody.prepend(tr);
+
+  while (tbody.children.length > PER_PAGE) {
+    tbody.lastChild.remove();
+  }
+
+  renderPagination();
 }
 
 function handleDuplicateAttendance(data) {
@@ -251,7 +282,7 @@ async function submitUID(uid) {
     } else if (data.success && data.student) {
       showFlash('success', `${data.student.name} - ${data.status}`);
       showToast('success', data.student.name, `${data.student.class} | ${data.time} | ${data.status}`);
-      loadAttendance(1);
+      refreshAttendance();
     } else {
       showFlash('error', data.message || 'Gagal');
     }
@@ -266,7 +297,7 @@ async function submitUID(uid) {
 const origHandleNew = handleNewAttendance;
 const origHandleDup = handleDuplicateAttendance;
 handleNewAttendance = function(data) {
-  if (uidEntered) { loadAttendance(1); return; }
+  if (uidEntered) { refreshAttendance(); return; }
   origHandleNew(data);
 };
 handleDuplicateAttendance = function(data) {
