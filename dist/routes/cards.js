@@ -6,9 +6,9 @@ import { writeIpLimiter } from '../middleware/rateLimit.js';
 import { RegisterCardSchema, GetRecentCardsQuerySchema } from '../validators/cards.js';
 const router = Router();
 router.get('/', validateQuery(GetRecentCardsQuerySchema), asyncHandler(async (req, res) => {
-    const { limit } = req.query;
-    const data = await service.listRecent(limit);
-    res.json({ success: true, data });
+    const { limit, offset } = req.query;
+    const result = await service.listRecent(limit, offset);
+    res.json({ success: true, ...result });
 }));
 router.post('/', validate(RegisterCardSchema), writeIpLimiter, asyncHandler(async (req, res) => {
     const result = await service.registerCard(req.body.uid, req.body.student_id);

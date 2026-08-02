@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pendaftaran Siswa - SMK Taruna Bangsa</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <%- include('partials/header') %>
+
+  <main class="container">
+    <div class="students-grid">
+      <section class="register-card">
+        <div class="section-header">
+          <h2>Daftarkan Siswa</h2>
+        </div>
+        <div class="register-form">
+          <div class="form-field">
+            <label for="student-nis">NIS</label>
+            <input type="text" id="student-nis" class="form-input" autocomplete="off" maxlength="20" placeholder="contoh: 2024001">
+          </div>
+          <div class="form-field">
+            <label for="student-name">Nama Lengkap</label>
+            <input type="text" id="student-name" class="form-input" autocomplete="off" maxlength="100" placeholder="contoh: Budi Santoso">
+          </div>
+          <div class="form-field">
+            <label for="student-class">Kelas</label>
+            <input type="text" id="student-class" class="form-input" autocomplete="off" maxlength="20" placeholder="contoh: XII RPL 5">
+          </div>
+          <button id="student-register-btn" class="btn-primary">Daftarkan Siswa</button>
+        </div>
+      </section>
+
+      <section class="attendance-section">
+        <div class="section-header">
+          <h2>Daftar Siswa</h2>
+          <span class="stat-badge" id="student-count">0 siswa</span>
+        </div>
+        <div class="table-wrapper">
+          <table class="attendance-table">
+            <thead>
+              <tr>
+                <th>No</th>
+                <th>NIS</th>
+                <th>Nama</th>
+                <th>Kelas</th>
+                <th>Waktu Daftar</th>
+              </tr>
+            </thead>
+            <tbody id="student-body">
+              <tr class="empty-row"><td colspan="5">Belum ada siswa terdaftar</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" id="student-pagination"></div>
+      </section>
+    </div>
+  </main>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="/js/students.js"></script>
+</body>
+</html>

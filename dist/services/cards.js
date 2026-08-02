@@ -22,6 +22,6 @@ export async function registerCard(uid, studentId) {
         student: { name: student.name, class: student.class, nis: student.nis },
     };
 }
-export async function listRecent(limit) {
-    return cardRepo.listRecent(limit);
+export async function listRecent(limit, offset) {
+    return cardRepo.listRecent(limit, offset);
 }

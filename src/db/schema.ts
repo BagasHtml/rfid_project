@@ -1,10 +1,11 @@
-import { mysqlTable, int, varchar, date, time, boolean, uniqueIndex } from 'drizzle-orm/mysql-core';
+import { mysqlTable, int, varchar, date, time, boolean, timestamp, uniqueIndex } from 'drizzle-orm/mysql-core';
 export const students = mysqlTable('students', {
   id: int('id').primaryKey().autoincrement(),
   nis: varchar('nis', { length: 32 }).notNull(),
   name: varchar('name', { length: 128 }).notNull(),
   class: varchar('class', { length: 16 }).notNull(),
   isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at', { mode: 'date' }),
 });
 
 export const cards = mysqlTable('cards', {
@@ -12,6 +13,7 @@ export const cards = mysqlTable('cards', {
   uid: varchar('uid', { length: 32 }).notNull(),
   studentId: int('student_id').notNull(),
   isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at', { mode: 'date' }),
 }, (table) => ({
   uidUnique: uniqueIndex('uq_cards_uid').on(table.uid),
 }));

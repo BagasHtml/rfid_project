@@ -3,6 +3,11 @@
     <div class="logo">
       <img src="/images/logo.webp" alt="SMK Taruna Bangsa" class="logo-img">
     </div>
+    <nav class="nav-links">
+      <a href="/" class="nav-link <%= page === 'index' ? 'active' : '' %>">Absensi</a>
+      <a href="/register" class="nav-link <%= page === 'register' ? 'active' : '' %>">Daftar Kartu</a>
+      <a href="/students" class="nav-link <%= page === 'students' ? 'active' : '' %>">Daftar Siswa</a>
+    </nav>
     <div class="header-date">
       <span id="current-date"></span>
     </div>

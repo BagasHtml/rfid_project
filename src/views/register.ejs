@@ -15,6 +15,10 @@
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"/></svg>
         Kembali ke Absensi
       </a>
+      <a href="/students" class="back-link">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V6a3.75 3.75 0 0 0-7.5 0v3M12 3a2.25 2.25 0 0 1 2.25 2.25v2.5h-4.5v-2.5A2.25 2.25 0 0 1 12 3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+        Daftarkan Siswa Baru
+      </a>
     </div>
 
     <div class="register-grid">
@@ -65,13 +69,15 @@
               <th>NIS</th>
               <th>Nama</th>
               <th>Kelas</th>
+              <th>Waktu Daftar</th>
             </tr>
           </thead>
           <tbody id="recent-body">
-            <tr class="empty-row"><td colspan="4">Belum ada kartu terdaftar</td></tr>
+            <tr class="empty-row"><td colspan="5">Belum ada kartu terdaftar</td></tr>
           </tbody>
         </table>
       </div>
+      <div class="pagination" id="recent-pagination"></div>
     </section>
   </main>
 

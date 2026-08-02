@@ -20,7 +20,14 @@ const app = express();
 app.set('view engine', 'ejs');
 app.set('views', path.join(projectRoot, 'src', 'views'));
 
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      'upgrade-insecure-requests': null,
+    },
+  },
+}));
 
 app.use(cors({
   origin: env.corsOrigin,

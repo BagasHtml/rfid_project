@@ -1,6 +1,7 @@
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { cards, students } from '../db/schema.js';
+import { formatDateTime } from '../utils/date.js';
 import type { CardWithStudent, CardRecord } from '../types/index.js';
 
 export async function insertCard(uid: string, studentId: number): Promise<number> {
@@ -12,12 +13,13 @@ export async function insertCard(uid: string, studentId: number): Promise<number
   return header.insertId;
 }
 
-export async function listRecent(limit: number = 20): Promise<CardRecord[]> {
+export async function listRecent(limit: number = 20, offset: number = 0): Promise<{ data: CardRecord[]; total: number }> {
   const rows = await db
     .select({
       id: cards.id,
       uid: cards.uid,
       isActive: cards.isActive,
+      createdAt: cards.createdAt,
       studentName: students.name,
       studentClass: students.class,
       studentNis: students.nis,
@@ -25,16 +27,25 @@ export async function listRecent(limit: number = 20): Promise<CardRecord[]> {
     .from(cards)
     .innerJoin(students, eq(cards.studentId, students.id))
     .orderBy(desc(cards.id))
-    .limit(limit);
+    .limit(limit)
+    .offset(offset);
 
-  return rows.map(r => ({
-    id: r.id,
-    uid: r.uid,
-    is_active: r.isActive,
-    student_name: r.studentName,
-    student_class: r.studentClass,
-    student_nis: r.studentNis,
-  }));
+  const countResult = await db
+    .select({ total: sql<number>`COUNT(*)` })
+    .from(cards);
+
+  return {
+    data: rows.map(r => ({
+      id: r.id,
+      uid: r.uid,
+      is_active: r.isActive,
+      student_name: r.studentName,
+      student_class: r.studentClass,
+      student_nis: r.studentNis,
+      created_at: r.createdAt ? formatDateTime(r.createdAt) : null,
+    })),
+    total: Number(countResult[0].total),
+  };
 }
 
 export async function findActiveByUid(uid: string): Promise<CardWithStudent | null> {

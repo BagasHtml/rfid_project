@@ -82,28 +82,34 @@ function renderPagination() {
   for (let p = 1; p <= totalPages; p++) {
     if (totalPages > 7) {
       if (p === 1 || p === totalPages || (p >= currentPage - 1 && p <= currentPage + 1)) {
-        pagesHTML += `<button class="pagination-btn ${p === currentPage ? 'active' : ''}" onclick="loadAttendance(${p})">${p}</button>`;
+        pagesHTML += `<button class="pagination-btn ${p === currentPage ? 'active' : ''}" data-page="${p}">${p}</button>`;
       } else if (p === currentPage - 2 || p === currentPage + 2) {
         pagesHTML += '<span class="pagination-ellipsis">...</span>';
       }
     } else {
-      pagesHTML += `<button class="pagination-btn ${p === currentPage ? 'active' : ''}" onclick="loadAttendance(${p})">${p}</button>`;
+      pagesHTML += `<button class="pagination-btn ${p === currentPage ? 'active' : ''}" data-page="${p}">${p}</button>`;
     }
   }
 
   el.innerHTML = `
     <span class="pagination-info">${start}–${end} dari ${totalRows}</span>
     <div class="pagination-controls">
-      <button class="pagination-btn" ${currentPage <= 1 ? 'disabled' : ''} onclick="loadAttendance(${currentPage - 1})">
+      <button class="pagination-btn" data-page="${currentPage - 1}" ${currentPage <= 1 ? 'disabled' : ''}>
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg>
       </button>
       ${pagesHTML}
-      <button class="pagination-btn" ${currentPage >= totalPages ? 'disabled' : ''} onclick="loadAttendance(${currentPage + 1})">
+      <button class="pagination-btn" data-page="${currentPage + 1}" ${currentPage >= totalPages ? 'disabled' : ''}>
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
       </button>
     </div>
   `;
 }
+
+document.getElementById('pagination').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-page]');
+  if (!btn || btn.disabled) return;
+  loadAttendance(Number(btn.dataset.page));
+});
 
 function connectSSE() {
   if (eventSource) {
@@ -237,8 +243,11 @@ let uidEntered = false;
 
 const rfidInput = document.getElementById('rfid-input');
 
+const FORM_TAGS = new Set(['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON', 'A']);
+
 function focusRfidInput() {
-  if (rfidInput && document.activeElement !== rfidInput) {
+  const active = document.activeElement;
+  if (rfidInput && active !== rfidInput && !(active && FORM_TAGS.has(active.tagName))) {
     rfidInput.focus();
   }
 }

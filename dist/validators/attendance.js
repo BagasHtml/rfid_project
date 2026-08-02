@@ -8,6 +8,13 @@ export const PostAttendanceSchema = z.object({
         .regex(UID_PATTERN, 'Format UID tidak valid (8-24 karakter hex)'),
 });
 export const GetTodayQuerySchema = z.object({
-    limit: z.coerce.number().int().min(1).max(200).default(100),
-    offset: z.coerce.number().int().min(0).default(0),
+    limit: z.coerce.number({ error: 'Parameter limit harus berupa angka' })
+        .int('Parameter limit harus bilangan bulat')
+        .min(1, 'Parameter limit minimal 1')
+        .max(200, 'Parameter limit maksimal 200')
+        .default(100),
+    offset: z.coerce.number({ error: 'Parameter offset harus berupa angka' })
+        .int('Parameter offset harus bilangan bulat')
+        .min(0, 'Parameter offset tidak boleh negatif')
+        .default(0),
 });

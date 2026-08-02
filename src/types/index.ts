@@ -60,4 +60,21 @@ export interface CardRecord {
   student_name: string;
   student_class: string;
   student_nis: string;
+  created_at: string | null;
+}
+
+export interface StudentRecord {
+  id: number;
+  nis: string;
+  name: string;
+  class: string;
+  is_active: boolean;
+  created_at: string | null;
+}
+
+export interface RegisterStudentResult {
+  success: boolean;
+  message: string;
+  statusCode: number;
+  student?: StudentInfo;
 }

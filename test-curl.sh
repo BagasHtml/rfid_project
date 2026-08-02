@@ -71,14 +71,52 @@ echo "=== 10. GET Today — Pagination (limit 2, offset 0) ==="
 curl -s "$BASE_URL/api/attendance/today?limit=2&offset=0" | jq .
 
 echo ""
-echo "=== 11. GET Today — Limit Melebihi Max (harus di-cap 200) ==="
+echo "=== 11. GET Today — Limit Melebihi Max (harus 400) ==="
 curl -s "$BASE_URL/api/attendance/today?limit=999" | jq .
 
 echo ""
-echo "=== 12. GET Today — Offset Negatif (harus diabaikan) ==="
+echo "=== 12. GET Today — Offset Negatif (harus 400) ==="
 curl -s "$BASE_URL/api/attendance/today?offset=-5" | jq .
 
 echo ""
 echo "=== 13. SSE Stream (tekan Ctrl+C untuk stop) ==="
 echo "Running: curl -N $BASE_URL/api/attendance/stream"
 echo "(Stream akan terus jalan, buka terminal lain untuk test POST)"
+
+echo ""
+echo "=== 14. Register Kartu — UID Baru (Berhasil) ==="
+curl -s -X POST "$BASE_URL/api/cards" \
+  -H "Content-Type: application/json" \
+  -d '{"uid":"A1B2C3D4E5F6","student_id":1}' | jq .
+
+echo ""
+echo "=== 15. Register Kartu — UID Duplikat (Harus 409) ==="
+curl -s -X POST "$BASE_URL/api/cards" \
+  -H "Content-Type: application/json" \
+  -d '{"uid":"A1B2C3D4E5F6","student_id":1}' | jq .
+
+echo ""
+echo "=== 16. Register Kartu — Siswa Tidak Ditemukan (Harus 404) ==="
+curl -s -X POST "$BASE_URL/api/cards" \
+  -H "Content-Type: application/json" \
+  -d '{"uid":"B2C3D4E5F6A7","student_id":9999}' | jq .
+
+echo ""
+echo "=== 17. Register Kartu — UID Invalid / Terlalu Pendek (Harus 400) ==="
+curl -s -X POST "$BASE_URL/api/cards" \
+  -H "Content-Type: application/json" \
+  -d '{"uid":"ZZZ","student_id":1}' | jq .
+
+echo ""
+echo "=== 18. Register Kartu — Body Kosong (Harus 400) ==="
+curl -s -X POST "$BASE_URL/api/cards" \
+  -H "Content-Type: application/json" \
+  -d '{}' | jq .
+
+echo ""
+echo "=== 19. Daftar Kartu — Halaman 1 (limit 2, offset 0) ==="
+curl -s "$BASE_URL/api/cards?limit=2&offset=0" | jq .
+
+echo ""
+echo "=== 20. Daftar Kartu — Halaman 2 (limit 2, offset 2) ==="
+curl -s "$BASE_URL/api/cards?limit=2&offset=2" | jq .

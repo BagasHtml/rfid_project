@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { rateLimit } from 'express-rate-limit';
+import { rateLimit, ipKeyGenerator } from 'express-rate-limit';
 
 const WINDOW_MS = 60_000;
 
@@ -15,7 +15,7 @@ export const attendanceUidLimiter = rateLimit({
   limit: 12,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
-  keyGenerator: (req) => req.body?.uid || req.ip,
+  keyGenerator: (req) => req.body?.uid || ipKeyGenerator(req.ip || ''),
   handler: tooManyRequestsHandler,
 });
 

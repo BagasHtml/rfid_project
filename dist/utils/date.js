@@ -18,6 +18,9 @@ export function getCurrentDate() {
 export function getCurrentTime() {
     return timeFormatter.format(new Date());
 }
+export function formatDateTime(d) {
+    return `${dateFormatter.format(d)} ${timeFormatter.format(d)}`;
+}
 export function determineStatus(currentTime, threshold) {
     return currentTime <= threshold ? 'Tepat Waktu' : 'Terlambat';
 }

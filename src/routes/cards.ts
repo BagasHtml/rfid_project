@@ -8,9 +8,9 @@ import { RegisterCardSchema, GetRecentCardsQuerySchema, type GetRecentCardsQuery
 const router = Router();
 
 router.get('/', validateQuery(GetRecentCardsQuerySchema), asyncHandler(async (req: Request, res: Response) => {
-  const { limit } = req.query as unknown as GetRecentCardsQueryInput;
-  const data = await service.listRecent(limit);
-  res.json({ success: true, data });
+  const { limit, offset } = req.query as unknown as GetRecentCardsQueryInput;
+  const result = await service.listRecent(limit, offset);
+  res.json({ success: true, ...result });
 }));
 
 router.post('/', validate(RegisterCardSchema), writeIpLimiter, asyncHandler(async (req: Request, res: Response) => {

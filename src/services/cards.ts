@@ -27,6 +27,6 @@ export async function registerCard(uid: string, studentId: number): Promise<Regi
   };
 }
 
-export async function listRecent(limit?: number) {
-  return cardRepo.listRecent(limit);
+export async function listRecent(limit?: number, offset?: number) {
+  return cardRepo.listRecent(limit, offset);
 }

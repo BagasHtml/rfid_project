@@ -24,6 +24,10 @@ export function getCurrentTime(): string {
   return timeFormatter.format(new Date());
 }
 
+export function formatDateTime(d: Date): string {
+  return `${dateFormatter.format(d)} ${timeFormatter.format(d)}`;
+}
+
 export function determineStatus(currentTime: string, threshold: string): AttendanceStatus {
   return currentTime <= threshold ? 'Tepat Waktu' : 'Terlambat';
 }
