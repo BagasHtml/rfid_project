@@ -2,10 +2,6 @@ import * as cardRepo from '../repositories/card.js';
 import * as studentRepo from '../repositories/student.js';
 import { isDuplicateEntryError } from '../utils/error.js';
 export async function registerCard(uid, studentId) {
-    const existing = await cardRepo.findByUid(uid);
-    if (existing) {
-        return { success: false, message: 'UID kartu sudah terdaftar', statusCode: 409 };
-    }
     const student = await studentRepo.findById(studentId);
     if (!student) {
         return { success: false, message: 'Siswa tidak ditemukan', statusCode: 404 };

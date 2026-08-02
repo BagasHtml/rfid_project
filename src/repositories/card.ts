@@ -3,21 +3,6 @@ import { db } from '../db/index.js';
 import { cards, students } from '../db/schema.js';
 import type { CardWithStudent, CardRecord } from '../types/index.js';
 
-export async function findByUid(uid: string): Promise<{ uid: string; student_id: number } | null> {
-  const rows = await db
-    .select({
-      uid: cards.uid,
-      studentId: cards.studentId,
-    })
-    .from(cards)
-    .where(eq(cards.uid, uid))
-    .limit(1);
-
-  if (rows.length === 0) return null;
-
-  return { uid: rows[0].uid, student_id: rows[0].studentId };
-}
-
 export async function insertCard(uid: string, studentId: number): Promise<number> {
   const [header] = await db.insert(cards).values({
     uid,

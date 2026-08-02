@@ -1,19 +1,6 @@
 import { eq, and, desc } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { cards, students } from '../db/schema.js';
-export async function findByUid(uid) {
-    const rows = await db
-        .select({
-        uid: cards.uid,
-        studentId: cards.studentId,
-    })
-        .from(cards)
-        .where(eq(cards.uid, uid))
-        .limit(1);
-    if (rows.length === 0)
-        return null;
-    return { uid: rows[0].uid, student_id: rows[0].studentId };
-}
 export async function insertCard(uid, studentId) {
     const [header] = await db.insert(cards).values({
         uid,

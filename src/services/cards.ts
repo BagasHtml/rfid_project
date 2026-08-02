@@ -4,12 +4,6 @@ import { isDuplicateEntryError } from '../utils/error.js';
 import type { RegisterCardResult } from '../types/index.js';
 
 export async function registerCard(uid: string, studentId: number): Promise<RegisterCardResult> {
-  const existing = await cardRepo.findByUid(uid);
-
-  if (existing) {
-    return { success: false, message: 'UID kartu sudah terdaftar', statusCode: 409 };
-  }
-
   const student = await studentRepo.findById(studentId);
 
   if (!student) {
