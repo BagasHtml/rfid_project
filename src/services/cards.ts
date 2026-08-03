@@ -1,7 +1,8 @@
 import * as cardRepo from '../repositories/card.js';
 import * as studentRepo from '../repositories/student.js';
-import { isDuplicateEntryError } from '../utils/error.js';
-import type { RegisterCardResult } from '../types/index.js';
+import { toCardRecord } from '../mappers/card.js';
+import { writeOrDuplicate } from '../utils/insert.js';
+import type { RegisterCardResult } from '../types/card.js';
 
 export async function registerCard(uid: string, studentId: number): Promise<RegisterCardResult> {
   const student = await studentRepo.findById(studentId);
@@ -10,14 +11,11 @@ export async function registerCard(uid: string, studentId: number): Promise<Regi
     return { success: false, message: 'Siswa tidak ditemukan', statusCode: 404 };
   }
 
-  try {
-    await cardRepo.insertCard(uid, studentId);
-  } catch (err) {
-    if (isDuplicateEntryError(err)) {
-      return { success: false, message: 'UID kartu sudah terdaftar', statusCode: 409 };
-    }
-    throw err;
-  }
+  const conflict = await writeOrDuplicate(
+    () => cardRepo.insertCard(uid, studentId),
+    () => ({ success: false, message: 'UID kartu sudah terdaftar', statusCode: 409 }),
+  );
+  if (conflict) return conflict;
 
   return {
     success: true,
@@ -28,5 +26,6 @@ export async function registerCard(uid: string, studentId: number): Promise<Regi
 }
 
 export async function listRecent(limit?: number, offset?: number) {
-  return cardRepo.listRecent(limit, offset);
+  const { data, total } = await cardRepo.listRecent(limit, offset);
+  return { data: data.map(toCardRecord), total };
 }

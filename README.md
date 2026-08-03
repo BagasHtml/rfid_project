@@ -212,7 +212,7 @@ settings (key-value store)
 - `late_threshold` = `07:00:00` (batas jam keterlambatan, dibaca dengan cache in-memory 60 detik)
 - `school_name` = `SMK Negeri 1 Contoh`
 
-> **Catatan:** `database/schema.sql` hanyalah referensi DDL. Definisi tabel resmi untuk aplikasi ada di `src/db/schema.ts`.
+> **Catatan:** `database/schema.sql` hanyalah referensi DDL. Definisi tabel resmi untuk aplikasi ada di `src/db/schema.ts`. Sinkronkan database dari definisi resmi dengan `npm run db:push` (atau `npm run db:migrate`).
 
 ### Cara Setup
 
@@ -220,10 +220,10 @@ settings (key-value store)
 # 1. Buat database
 mysql -u root -p -e "CREATE DATABASE rfid_attendance"
 
-# 2. Import schema
-mysql -u root -p rfid_attendance < database/schema.sql
+# 2. Sinkronkan skema (definisi resmi: src/db/schema.ts)
+npm run db:push
 
-# 3. Import seed data
+# 3. Import seed data (opsional, data contoh)
 mysql -u root -p rfid_attendance < database/seed.sql
 ```
 
@@ -649,7 +649,7 @@ bun install
 
 # Setup database
 mysql -u root -p -e "CREATE DATABASE rfid_attendance"
-mysql -u root -p rfid_attendance < database/schema.sql
+npm run db:push
 mysql -u root -p rfid_attendance < database/seed.sql
 
 # Konfigurasi environment (edit .env)

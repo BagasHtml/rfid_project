@@ -4,18 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pendaftaran Siswa - SMK Taruna Bangsa</title>
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css?v=3">
 </head>
 <body>
   <%- include('partials/header') %>
 
-  <main class="container">
-    <div class="students-grid">
-      <section class="register-card">
-        <div class="section-header">
-          <h2>Daftarkan Siswa</h2>
-        </div>
-        <div class="register-form">
+  <div class="students-grid">
+    <section class="register-card">
+      <div class="section-header">
+        <h2>Daftarkan Siswa</h2>
+      </div>
+      <div class="register-body">
+        <button id="student-toggle-form" class="btn-primary" type="button">+ Daftarkan Siswa</button>
+        <div class="register-form hidden" id="student-register-form">
           <div class="form-field">
             <label for="student-nis">NIS</label>
             <input type="text" id="student-nis" class="form-input" autocomplete="off" maxlength="20" placeholder="contoh: 2024001">
@@ -30,36 +34,70 @@
           </div>
           <button id="student-register-btn" class="btn-primary">Daftarkan Siswa</button>
         </div>
-      </section>
+      </div>
+    </section>
 
-      <section class="attendance-section">
-        <div class="section-header">
-          <h2>Daftar Siswa</h2>
-          <span class="stat-badge" id="student-count">0 siswa</span>
+    <section class="attendance-section">
+      <div class="section-header">
+        <h2>Daftar Siswa</h2>
+        <span class="stat-badge" id="student-count">0 siswa</span>
+      </div>
+      <div class="table-toolbar">
+        <input type="text" id="student-search" class="form-input search-input" placeholder="Cari NIS, nama, atau kelas..." autocomplete="off">
+      </div>
+      <div class="table-wrapper">
+        <table class="attendance-table">
+          <thead>
+            <tr>
+              <th>No</th>
+              <th>NIS</th>
+              <th>Nama</th>
+              <th>Kelas</th>
+              <th>Waktu Daftar</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="student-body">
+            <tr class="empty-row"><td colspan="6">Belum ada siswa terdaftar</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination" id="student-pagination"></div>
+    </section>
+  </div>
+
+  <%- include('partials/footer') %>
+
+  <div class="modal-overlay hidden" id="edit-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Edit Siswa</h3>
+        <button type="button" class="modal-close" id="edit-close-btn" aria-label="Tutup">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-id">
+        <div class="form-field">
+          <label for="edit-nis">NIS</label>
+          <input type="text" id="edit-nis" class="form-input" autocomplete="off" maxlength="20">
         </div>
-        <div class="table-wrapper">
-          <table class="attendance-table">
-            <thead>
-              <tr>
-                <th>No</th>
-                <th>NIS</th>
-                <th>Nama</th>
-                <th>Kelas</th>
-                <th>Waktu Daftar</th>
-              </tr>
-            </thead>
-            <tbody id="student-body">
-              <tr class="empty-row"><td colspan="5">Belum ada siswa terdaftar</td></tr>
-            </tbody>
-          </table>
+        <div class="form-field">
+          <label for="edit-name">Nama Lengkap</label>
+          <input type="text" id="edit-name" class="form-input" autocomplete="off" maxlength="100">
         </div>
-        <div class="pagination" id="student-pagination"></div>
-      </section>
+        <div class="form-field">
+          <label for="edit-class">Kelas</label>
+          <input type="text" id="edit-class" class="form-input" autocomplete="off" maxlength="20">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" id="edit-cancel-btn">Batal</button>
+        <button type="button" class="btn-primary" id="edit-save-btn">Simpan</button>
+      </div>
     </div>
-  </main>
+  </div>
 
   <div class="toast-container" id="toast-container"></div>
 
-  <script src="/js/students.js"></script>
+  <script src="/js/students.js?v=3"></script>
 </body>
 </html>

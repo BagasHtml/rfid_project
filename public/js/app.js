@@ -7,6 +7,23 @@ let reconnectAttempts = 0;
 const PER_PAGE = 10;
 let currentPage = 1; 
 let totalRows = 0;
+let totalStudents = 0;
+
+const metricEls = {
+  total: document.getElementById('metric-total'),
+  hadir: document.getElementById('metric-hadir'),
+  late: document.getElementById('metric-late'),
+  absent: document.getElementById('metric-absent'),
+};
+
+function updateMetrics(stats) {
+  if (!stats) return;
+  totalStudents = stats.total_students;
+  if (metricEls.total) metricEls.total.textContent = stats.total_students;
+  if (metricEls.hadir) metricEls.hadir.textContent = stats.present;
+  if (metricEls.late) metricEls.late.textContent = stats.late;
+  if (metricEls.absent) metricEls.absent.textContent = stats.absent;
+}
 
 document.addEventListener('DOMContentLoaded', () => {
   setCurrentDate();
@@ -30,6 +47,7 @@ async function loadAttendance(page = 1) {
       currentPage = page;
       totalRows = data.total;
       document.getElementById('total-count').textContent = `${totalRows} hadir`;
+      updateMetrics(data.stats);
       renderTable(data.data);
       renderPagination();
     }
@@ -161,6 +179,11 @@ function refreshAttendance() {
 function prependAttendance(data) {
   totalRows += 1;
   document.getElementById('total-count').textContent = `${totalRows} hadir`;
+  if (metricEls.hadir) metricEls.hadir.textContent = totalRows;
+  if (data.status === 'Terlambat' && metricEls.late) {
+    metricEls.late.textContent = Number(metricEls.late.textContent || 0) + 1;
+  }
+  if (metricEls.absent) metricEls.absent.textContent = Math.max(totalStudents - totalRows, 0);
 
   if (currentPage !== 1) {
     renderPagination();

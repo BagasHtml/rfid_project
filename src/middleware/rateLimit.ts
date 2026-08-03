@@ -21,7 +21,7 @@ export const attendanceUidLimiter = rateLimit({
 
 export const attendanceIpLimiter = rateLimit({
   windowMs: WINDOW_MS,
-  limit: 120,
+  limit: 600,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   handler: tooManyRequestsHandler,
@@ -32,5 +32,6 @@ export const writeIpLimiter = rateLimit({
   limit: 30,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
+  skipSuccessfulRequests: true,
   handler: tooManyRequestsHandler,
 });

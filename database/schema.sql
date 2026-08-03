@@ -31,7 +31,7 @@ CREATE TABLE attendance (
     student_id INT UNSIGNED NOT NULL,
     date       DATE         NOT NULL,
     time       TIME         NOT NULL,
-    status     ENUM('Hadir', 'Terlambat') NOT NULL,
+    status     VARCHAR(20)   NOT NULL,
     created_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT uq_attendance_student_date UNIQUE (student_id, date),

@@ -2,15 +2,14 @@ import { eq } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { settings } from '../db/schema.js';
 
-const TTL_MS = 60_000;
+const TTL_MS = 10_000;
 const cache = new Map<string, { value: string; expiresAt: number }>();
 
 export async function get(key: string): Promise<string | null> {
   const cached = cache.get(key);
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.value;
-  }
-  if (cached) cache.delete(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+
+  cache.delete(key);
 
   const rows = await db
     .select({ value: settings.value })

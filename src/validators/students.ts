@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const RegisterStudentSchema = z.object({
+const studentFields = {
   nis: z
     .string({ error: 'NIS wajib diisi' })
     .trim()
@@ -16,7 +16,10 @@ export const RegisterStudentSchema = z.object({
     .trim()
     .min(1, 'Kelas wajib diisi')
     .max(20, 'Kelas maksimal 20 karakter'),
-});
+};
+
+export const RegisterStudentSchema = z.object(studentFields);
+export const UpdateStudentSchema = z.object(studentFields);
 
 export const GetStudentsQuerySchema = z.object({
   limit: z.coerce.number({ error: 'Parameter limit harus berupa angka' })
@@ -28,7 +31,16 @@ export const GetStudentsQuerySchema = z.object({
     .int('Parameter offset harus bilangan bulat')
     .min(0, 'Parameter offset tidak boleh negatif')
     .default(0),
+  q: z.string().trim().max(50, 'Pencarian maksimal 50 karakter').optional(),
+});
+
+export const StudentIdParamSchema = z.object({
+  id: z.coerce.number({ error: 'ID siswa harus berupa angka' })
+    .int('ID siswa harus bilangan bulat')
+    .positive('ID siswa tidak valid'),
 });
 
 export type RegisterStudentInput = z.infer<typeof RegisterStudentSchema>;
+export type UpdateStudentInput = z.infer<typeof UpdateStudentSchema>;
 export type GetStudentsQueryInput = z.infer<typeof GetStudentsQuerySchema>;
+export type StudentIdParamInput = z.infer<typeof StudentIdParamSchema>;

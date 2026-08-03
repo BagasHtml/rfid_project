@@ -21,3 +21,12 @@ export function isDuplicateEntryError(err: unknown): boolean {
     (root as { code: string }).code === 'ER_DUP_ENTRY'
   );
 }
+
+export function isForeignKeyError(err: unknown): boolean {
+  const root = rootCause(err);
+  const code =
+    typeof root === 'object' && root !== null && 'code' in root
+      ? (root as { code: string }).code
+      : undefined;
+  return code === 'ER_ROW_IS_REFERENCED_2' || code === 'ER_ROW_IS_REFERENCED';
+}

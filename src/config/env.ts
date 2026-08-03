@@ -36,6 +36,10 @@ const EnvSchema = z.object({
     .trim()
     .optional()
     .transform(v => (v ? v : 'Asia/Jakarta')),
+  TRUST_PROXY: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform(v => v === 'true'),
 });
 
 const parsed = EnvSchema.safeParse(process.env);
@@ -72,4 +76,5 @@ export const env = {
   },
   lateThreshold: parsed.data.LATE_THRESHOLD,
   timezone: parsed.data.APP_TIMEZONE,
+  trustProxy: parsed.data.TRUST_PROXY,
 } as const;

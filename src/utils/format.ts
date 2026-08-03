@@ -1,4 +1,5 @@
-import type { CardWithStudent, StudentInfo } from '../types/index.js';
+import type { CardWithStudent } from '../types/card.js';
+import type { StudentInfo } from '../types/student.js';
 
 export function buildStudentInfo(card: CardWithStudent): StudentInfo {
   return {

@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { pool } from './config/db.js';
+import { pool } from './db/pool.js';
 import { env } from './config/env.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
@@ -16,6 +16,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, '..');
 
 const app = express();
+
+app.set('trust proxy', env.trustProxy);
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(projectRoot, 'src', 'views'));

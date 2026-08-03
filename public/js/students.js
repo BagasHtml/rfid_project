@@ -1,16 +1,36 @@
 const STUDENT_PER_PAGE = 10;
 let currentPage = 1;
 let totalRows = 0;
+let currentRows = [];
+let searchTimeout;
 
 const nisInput = document.getElementById('student-nis');
 const nameInput = document.getElementById('student-name');
 const classInput = document.getElementById('student-class');
 const registerBtn = document.getElementById('student-register-btn');
+const toggleFormBtn = document.getElementById('student-toggle-form');
+const registerForm = document.getElementById('student-register-form');
 const studentBody = document.getElementById('student-body');
+const searchInput = document.getElementById('student-search');
+
+const editModal = document.getElementById('edit-modal');
+const editId = document.getElementById('edit-id');
+const editNis = document.getElementById('edit-nis');
+const editName = document.getElementById('edit-name');
+const editClass = document.getElementById('edit-class');
+const editCloseBtn = document.getElementById('edit-close-btn');
+const editCancelBtn = document.getElementById('edit-cancel-btn');
+const editSaveBtn = document.getElementById('edit-save-btn');
 
 document.addEventListener('DOMContentLoaded', () => {
   setCurrentDate();
   loadStudents(1);
+});
+
+toggleFormBtn.addEventListener('click', () => {
+  const isHidden = registerForm.classList.toggle('hidden');
+  toggleFormBtn.textContent = isHidden ? '+ Daftarkan Siswa' : 'Tutup Form';
+  if (!isHidden) nisInput.focus();
 });
 
 function setCurrentDate() {
@@ -26,27 +46,43 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+function statusMessage(status, data) {
+  if (data && data.message) return data.message;
+  if (status === 409) return 'Data sudah terdaftar atau tidak dapat diubah.';
+  if (status === 429) return 'Terlalu banyak percobaan. Tunggu beberapa saat, lalu coba lagi.';
+  if (status === 400) return 'Data yang dikirim tidak valid.';
+  if (status === 404) return 'Data tidak ditemukan.';
+  if (status >= 500) return 'Server sedang bermasalah. Coba lagi dalam beberapa saat.';
+  return 'Terjadi kesalahan.';
+}
+
 async function loadStudents(page = 1) {
   try {
     const offset = (page - 1) * STUDENT_PER_PAGE;
-    const res = await fetch(`/api/students?limit=${STUDENT_PER_PAGE}&offset=${offset}`);
+    const params = new URLSearchParams({ limit: STUDENT_PER_PAGE, offset: String(offset) });
+    const q = searchInput.value.trim();
+    if (q) params.set('q', q);
+
+    const res = await fetch(`/api/students?${params}`);
     const data = await res.json();
 
     if (!data.success) throw new Error('Gagal memuat data siswa');
 
     currentPage = page;
     totalRows = data.total;
+    currentRows = data.data;
     document.getElementById('student-count').textContent = `${totalRows} siswa`;
     renderStudents(data.data);
     renderPagination();
   } catch (err) {
-    studentBody.innerHTML = '<tr class="empty-row"><td colspan="5">Gagal memuat daftar siswa. Periksa koneksi, lalu muat ulang.</td></tr>';
+    studentBody.innerHTML = '<tr class="empty-row"><td colspan="6">Gagal memuat daftar siswa. Periksa koneksi, lalu muat ulang.</td></tr>';
   }
 }
 
 function renderStudents(rows) {
   if (rows.length === 0) {
-    studentBody.innerHTML = '<tr class="empty-row"><td colspan="5">Belum ada siswa terdaftar</td></tr>';
+    const message = searchInput.value.trim() ? 'Tidak ada siswa yang cocok' : 'Belum ada siswa terdaftar';
+    studentBody.innerHTML = `<tr class="empty-row"><td colspan="6">${message}</td></tr>`;
     return;
   }
 
@@ -58,6 +94,10 @@ function renderStudents(rows) {
       <td>${escapeHtml(r.name)}</td>
       <td>${escapeHtml(r.class)}</td>
       <td>${escapeHtml(r.created_at || '')}</td>
+      <td class="actions-cell">
+        <button type="button" class="btn-action btn-edit" data-action="edit" data-id="${r.id}">Edit</button>
+        <button type="button" class="btn-action btn-delete" data-action="delete" data-id="${r.id}">Hapus</button>
+      </td>
     </tr>
   `).join('');
 }
@@ -107,13 +147,22 @@ document.getElementById('student-pagination').addEventListener('click', (e) => {
   loadStudents(Number(btn.dataset.page));
 });
 
-function friendlyError(status, data) {
-  if (status === 409) return 'NIS sudah terdaftar. Gunakan NIS yang berbeda.';
-  if (status === 429) return 'Terlalu banyak percobaan. Tunggu beberapa saat, lalu coba lagi.';
-  if (status === 400) return data.message || 'Data yang dikirim tidak valid.';
-  if (status >= 500) return 'Server sedang bermasalah. Coba lagi dalam beberapa saat.';
-  return data.message || 'Gagal mendaftarkan siswa.';
-}
+searchInput.addEventListener('input', () => {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => loadStudents(1), 300);
+});
+
+studentBody.addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-action]');
+  if (!btn) return;
+
+  const id = Number(btn.dataset.id);
+  if (btn.dataset.action === 'edit') {
+    openEditModal(id);
+  } else if (btn.dataset.action === 'delete') {
+    deleteStudent(id);
+  }
+});
 
 registerBtn.addEventListener('click', async () => {
   const nis = nisInput.value.trim();
@@ -149,7 +198,7 @@ registerBtn.addEventListener('click', async () => {
       nisInput.focus();
       loadStudents(1);
     } else {
-      showToast('error', 'Gagal mendaftar', friendlyError(res.status, data));
+      showToast('error', 'Gagal mendaftar', statusMessage(res.status, data));
     }
   } catch (err) {
     showToast('error', 'Gagal terhubung', 'Server tidak merespons. Pastikan server menyala dan jaringan terhubung.');
@@ -166,6 +215,109 @@ registerBtn.addEventListener('click', async () => {
     }
   });
 });
+
+function openEditModal(id) {
+  const student = currentRows.find(r => r.id === id);
+  if (!student) return;
+
+  editId.value = student.id;
+  editNis.value = student.nis;
+  editName.value = student.name;
+  editClass.value = student.class;
+  editModal.classList.remove('hidden');
+  editNis.focus();
+}
+
+function closeEditModal() {
+  editModal.classList.add('hidden');
+}
+
+editCloseBtn.addEventListener('click', closeEditModal);
+editCancelBtn.addEventListener('click', closeEditModal);
+editModal.addEventListener('click', (e) => {
+  if (e.target === editModal) closeEditModal();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !editModal.classList.contains('hidden')) closeEditModal();
+});
+
+editSaveBtn.addEventListener('click', async () => {
+  const id = Number(editId.value);
+  const nis = editNis.value.trim();
+  const name = editName.value.trim();
+  const className = editClass.value.trim();
+
+  if (!Number.isInteger(id) || id <= 0) {
+    showToast('error', 'Data siswa tidak valid', 'Muat ulang halaman, lalu coba lagi.');
+    closeEditModal();
+    return;
+  }
+
+  if (!nis || !name || !className) {
+    showToast('error', 'Form belum lengkap', 'Isi NIS, nama lengkap, dan kelas siswa terlebih dahulu.');
+    return;
+  }
+
+  editSaveBtn.disabled = true;
+
+  try {
+    const res = await fetch(`/api/students/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nis, name, class: className }),
+    });
+
+    let data = {};
+    try {
+      data = await res.json();
+    } catch {
+      data = {};
+    }
+
+    if (data.success) {
+      closeEditModal();
+      showToast('success', 'Siswa diperbarui', `${name} (${className})`);
+      loadStudents(currentPage);
+    } else {
+      showToast('error', 'Gagal memperbarui', statusMessage(res.status, data));
+    }
+  } catch (err) {
+    showToast('error', 'Gagal terhubung', 'Server tidak merespons. Pastikan server menyala dan jaringan terhubung.');
+  } finally {
+    editSaveBtn.disabled = false;
+  }
+});
+
+async function deleteStudent(id) {
+  const student = currentRows.find(r => r.id === id);
+  if (!student) return;
+
+  if (!confirm(`Hapus siswa "${student.name}"?`)) return;
+
+  try {
+    const res = await fetch(`/api/students/${id}`, { method: 'DELETE' });
+
+    let data = {};
+    try {
+      data = await res.json();
+    } catch {
+      data = {};
+    }
+
+    if (data.success) {
+      showToast('success', 'Siswa dihapus', student.name);
+      if (currentRows.length === 1 && currentPage > 1) {
+        loadStudents(currentPage - 1);
+      } else {
+        loadStudents(currentPage);
+      }
+    } else {
+      showToast('error', 'Gagal menghapus', statusMessage(res.status, data));
+    }
+  } catch (err) {
+    showToast('error', 'Gagal terhubung', 'Server tidak merespons. Pastikan server menyala dan jaringan terhubung.');
+  }
+}
 
 function showToast(type, name, detail) {
   const container = document.getElementById('toast-container');
