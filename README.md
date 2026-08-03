@@ -272,7 +272,7 @@ settings (key-value store)
 **Default settings:**
 - `late_threshold` = `07:00:00` (batas jam keterlambatan, dibaca dengan cache in-memory 60 detik)
 
-> **Catatan:** `database/seed.sql` saat ini hanya berisi **32 siswa kelas XI RPL 5** (NIS `242510389`–`242510420`). Tabel `cards` **tidak** di-seed — kartu RFID harus didaftarkan lewat halaman `/register` atau endpoint `POST /api/cards`.
+> **Catatan:** `database/seed.sql` saat ini hanya berisi **32 siswa kelas XI RPL 5** (NIS `25019203`–`242510420`). Tabel `cards` **tidak** di-seed — kartu RFID harus didaftarkan lewat halaman `/register` atau endpoint `POST /api/cards`.
 
 > **Catatan:** `database/schema.sql` hanyalah referensi DDL. Definisi tabel resmi untuk aplikasi ada di `src/db/schema.ts`. Sinkronkan database dari definisi resmi dengan `npm run db:push` (atau `npm run db:migrate`).
 
@@ -349,9 +349,9 @@ Mencatat absensi berdasarkan UID kartu RFID.
   "success": true,
   "message": "Absensi berhasil",
   "student": {
-    "name": "ADZKA HIBRIZI",
+    "name": "AGUNG WIBOWO",
     "class": "XI RPL 5",
-    "nis": "242510389"
+    "nis": "25019203"
   },
   "status": "Tepat Waktu",
   "time": "06:45:00"
@@ -420,9 +420,9 @@ Mendapatkan daftar absensi hari ini dengan pagination. Respons juga menyertakan 
       "date": "2026-08-03",
       "time": "06:45:00",
       "status": "Tepat Waktu",
-      "student_name": "ADZKA HIBRIZI",
+      "student_name": "AGUNG WIBOWO",
       "student_class": "XI RPL 5",
-      "student_nis": "242510389"
+      "student_nis": "25019203"
     }
   ],
   "total": 5,
@@ -459,9 +459,9 @@ Koneksi Server-Sent Events untuk menerima notifikasi real-time ketika ada absens
 Dikirim ketika ada absensi berhasil.
 ```json
 {
-  "name": "ADZKA HIBRIZI",
+  "name": "AGUNG WIBOWO",
   "class": "XI RPL 5",
-  "nis": "242510389",
+  "nis": "25019203",
   "time": "06:45:00",
   "status": "Tepat Waktu"
 }
@@ -503,7 +503,7 @@ Mendaftarkan kartu RFID baru ke siswa tertentu.
 {
   "success": true,
   "message": "Kartu berhasil didaftarkan",
-  "student": { "name": "ADZKA HIBRIZI", "class": "XI RPL 5", "nis": "242510389" }
+  "student": { "name": "AGUNG WIBOWO", "class": "XI RPL 5", "nis": "25019203" }
 }
 ```
 
@@ -542,9 +542,9 @@ Mendapatkan daftar kartu terdaftar (urut dari terbaru) dengan pagination.
       "id": 1,
       "uid": "0412A3B5C2D1",
       "is_active": true,
-      "student_name": "ADZKA HIBRIZI",
+      "student_name": "AGUNG WIBOWO",
       "student_class": "XI RPL 5",
-      "student_nis": "242510389",
+      "student_nis": "25019203",
       "created_at": "2026-07-29 23:33:34"
     }
   ],
@@ -577,8 +577,8 @@ Mendapatkan daftar siswa (urut dari terbaru) dengan pagination.
   "data": [
     {
       "id": 1,
-      "nis": "242510389",
-      "name": "ADZKA HIBRIZI",
+      "nis": "25019203",
+      "name": "AGUNG WIBOWO",
       "class": "XI RPL 5",
       "is_active": true,
       "created_at": "2026-07-29 23:33:34"
@@ -597,8 +597,8 @@ POST /api/students
 Content-Type: application/json
 
 {
-  "nis": "242510389",
-  "name": "ADZKA HIBRIZI",
+  "nis": "25019203",
+  "name": "AGUNG WIBOWO",
   "class": "XI RPL 5"
 }
 ```
@@ -617,7 +617,7 @@ Mendaftarkan siswa baru.
 {
   "success": true,
   "message": "Siswa berhasil didaftarkan",
-  "student": { "nis": "242510389", "name": "ADZKA HIBRIZI", "class": "XI RPL 5" }
+  "student": { "nis": "25019203", "name": "AGUNG WIBOWO", "class": "XI RPL 5" }
 }
 ```
 
@@ -641,7 +641,7 @@ Mendapatkan daftar siswa aktif untuk dropdown registrasi kartu.
 {
   "success": true,
   "data": [
-    { "id": 1, "nis": "242510389", "name": "ADZKA HIBRIZI", "class": "XI RPL 5" }
+    { "id": 1, "nis": "25019203", "name": "AGUNG WIBOWO", "class": "XI RPL 5" }
   ]
 }
 ```
@@ -789,7 +789,7 @@ curl -N http://localhost:3000/api/attendance/stream
 
 ### 4. Seed Data
 
-`database/seed.sql` berisi **32 siswa kelas XI RPL 5** (NIS `242510389`–`242510420`, nama sesuai daftar kelas). Tabel `cards` **tidak** di-seed — kartu RFID didaftarkan satu per satu lewat halaman `/register` atau endpoint `POST /api/cards`.
+`database/seed.sql` berisi **32 siswa kelas XI RPL 5** (NIS `25019203`–`242510420`, nama sesuai daftar kelas). Tabel `cards` **tidak** di-seed — kartu RFID didaftarkan satu per satu lewat halaman `/register` atau endpoint `POST /api/cards`.
 
 > **Catatan:** `test-curl.sh` memakai UID tetap (mis. `A1B2C3D4E5F6`) yang akan tersimpan sebagai data asli di tabel `cards`. Hapus baris tersebut jika tidak diinginkan di data produksi.
 
@@ -865,3 +865,4 @@ Semua perhitungan tanggal/jam absensi memakai `Intl.DateTimeFormat` dengan timez
 Di mode `production`, variabel wajib (`CORS_ORIGIN`, `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`) harus diisi — aplikasi akan menolak start dengan pesan error yang jelas jika kosong.
 
 ---
+                                                      vcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccvvBFC1v23 vbBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
