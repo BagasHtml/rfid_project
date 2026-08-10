@@ -875,4 +875,3 @@ Semua perhitungan tanggal/jam absensi memakai `Intl.DateTimeFormat` dengan timez
 Di mode `production`, variabel wajib (`CORS_ORIGIN`, `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`) harus diisi — aplikasi akan menolak start dengan pesan error yang jelas jika kosong.
 
 ---
-                                                      vcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccvvBFC1v23 vbBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
