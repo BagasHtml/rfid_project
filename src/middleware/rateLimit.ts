@@ -29,9 +29,24 @@ export const attendanceIpLimiter = rateLimit({
 
 export const writeIpLimiter = rateLimit({
   windowMs: WINDOW_MS,
-  limit: 30,
+  limit: 60,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
-  skipSuccessfulRequests: true,
+  handler: tooManyRequestsHandler,
+});
+
+export const readIpLimiter = rateLimit({
+  windowMs: WINDOW_MS,
+  limit: 120,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  handler: tooManyRequestsHandler,
+});
+
+export const sseIpLimiter = rateLimit({
+  windowMs: WINDOW_MS,
+  limit: 20,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
   handler: tooManyRequestsHandler,
 });

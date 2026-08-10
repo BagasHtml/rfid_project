@@ -19,3 +19,10 @@ export async function countRows(table: AnyMySqlTable, where?: SQL): Promise<numb
   const rows = where ? await builder.where(where) : await builder;
   return Number(rows[0].total);
 }
+
+export function clampPagination(limit: number, offset: number, maxLimit: number = 200): { limit: number; offset: number } {
+  return {
+    limit: Math.min(Math.max(Math.floor(limit), 1), maxLimit),
+    offset: Math.max(Math.floor(offset), 0),
+  };
+}

@@ -105,7 +105,7 @@ Repository Layer (repositories/)
 | **View** | EJS templates + static files (CSS, JS) untuk UI |
 | **Route** | Menangani HTTP request, validasi input via Zod (middleware `validate`), memanggil service |
 | **Service** | Logic bisnis: proses absensi, tentu status tepat waktu/terlambat, registrasi kartu |
-| **Repository** | Akses database via Drizzle ORM (parameterized queries), return typed results |
+| **Repository** | Akses database via Drizzle ORM (parameterized queries), return typed results; pagination di-clamp internal (`clampPagination`) sebagai defense-in-depth |
 
 Komponen tambahan:
 
@@ -156,7 +156,7 @@ rfid_project/
 │   ├── db/
 │   │   ├── index.ts         # Drizzle client
 │   │   ├── pool.ts          # Connection pool mysql2 (config koneksi DB)
-│   │   ├── helpers.ts       # Helper query: getInsertId(), getAffectedRows(), countRows()
+│   │   ├── helpers.ts       # Helper query: getInsertId(), getAffectedRows(), countRows(), clampPagination()
 │   │   └── schema.ts        # Definisi tabel (students, cards, attendance, settings)
 │   ├── mappers/
 │   │   ├── attendance.ts    # Mapping hasil query → tipe AttendanceWithStudent
@@ -233,7 +233,7 @@ settings (key-value store)
 | Kolom | Tipe | Keterangan |
 |-------|------|------------|
 | id | INT UNSIGNED PK | Auto increment |
-| nis | VARCHAR(32) | Nomor Induk Siswa |
+| nis | VARCHAR(32) UNIQUE | Nomor Induk Siswa (unique index `uq_students_nis`) |
 | name | VARCHAR(128) | Nama siswa |
 | class | VARCHAR(16) | Kelas |
 | is_active | BOOLEAN | Status aktif (default TRUE) |
@@ -244,7 +244,7 @@ settings (key-value store)
 |-------|------|------------|
 | id | INT UNSIGNED PK | Auto increment |
 | uid | VARCHAR(32) UNIQUE | ID unik kartu RFID (unique index `uq_cards_uid`) |
-| student_id | INT UNSIGNED FK | Foreign key ke students |
+| student_id | INT UNSIGNED FK | Foreign key ke students (RESTRICT, CASCADE) |
 | is_active | BOOLEAN | Status aktif (default TRUE) |
 | created_at | TIMESTAMP | Waktu kartu didaftarkan (nullable) |
 
@@ -253,12 +253,13 @@ settings (key-value store)
 | Kolom | Tipe | Keterangan |
 |-------|------|------------|
 | id | INT UNSIGNED PK | Auto increment |
-| student_id | INT UNSIGNED FK | Foreign key ke students |
+| student_id | INT UNSIGNED FK | Foreign key ke students (RESTRICT, CASCADE) |
 | date | DATE | Tanggal absensi |
 | time | TIME | Jam absensi |
 | status | VARCHAR(20) | `Tepat Waktu` / `Terlambat` |
 
 - **UNIQUE constraint** `unique_daily_attendance` pada `(student_id, date)` untuk mencegah duplikasi (race condition handling)
+- **FK `student_id`** RESTRICT: siswa dengan data kartu/absensi tidak dapat dihapus (blokir `DELETE /students/:id`)
 
 ### Tabel `settings`
 
@@ -274,7 +275,7 @@ settings (key-value store)
 
 > **Catatan:** `database/seed.sql` saat ini hanya berisi **32 siswa kelas XI RPL 5** (NIS `25019203`–`242510420`). Tabel `cards` **tidak** di-seed — kartu RFID harus didaftarkan lewat halaman `/register` atau endpoint `POST /api/cards`.
 
-> **Catatan:** `database/schema.sql` hanyalah referensi DDL. Definisi tabel resmi untuk aplikasi ada di `src/db/schema.ts`. Sinkronkan database dari definisi resmi dengan `npm run db:push` (atau `npm run db:migrate`).
+> **Catatan:** `database/schema.sql` hanyalah referensi DDL. Definisi tabel resmi untuk aplikasi ada di `src/db/schema.ts` — termasuk **FK** (`cards.student_id`, `attendance.student_id`) dan **unique index** (`uq_cards_uid`, `uq_students_nis`, `unique_daily_attendance`). Sinkronkan database dari definisi resmi dengan `npm run db:push` (atau `npm run db:migrate`). Pada database lama, jalankan `db:push` agar constraint aktif — pastikan tidak ada NIS duplikat atau data yatim terlebih dahulu.
 
 ### Cara Setup
 
@@ -336,7 +337,7 @@ Content-Type: application/json
 
 Mencatat absensi berdasarkan UID kartu RFID.
 
-**Rate limit:** 12 permintaan/menit per UID + 120 permintaan/menit per IP.
+**Rate limit:** 12 permintaan/menit per UID + 600 permintaan/menit per IP.
 
 **Validasi UID:**
 - Wajib diisi
@@ -492,7 +493,7 @@ Content-Type: application/json
 
 Mendaftarkan kartu RFID baru ke siswa tertentu.
 
-**Rate limit:** 30 permintaan/menit per IP.
+**Rate limit:** 60 permintaan/menit per IP.
 
 **Validasi:**
 - `uid`: wajib, 8-24 karakter hex, auto-uppercase
@@ -605,7 +606,7 @@ Content-Type: application/json
 
 Mendaftarkan siswa baru.
 
-**Rate limit:** 30 permintaan/menit per IP.
+**Rate limit:** 60 permintaan/menit per IP.
 
 **Validasi:**
 - `nis`: wajib, maksimal 20 karakter (unique — duplikat ditolak)
@@ -684,15 +685,21 @@ Semua limiter memakai window 60 detik dan merespons `429` JSON.
 | Endpoint | Limiter | Limit | Key |
 |----------|---------|-------|-----|
 | `POST /api/attendance` | `attendanceUidLimiter` | 12/menit | UID (fallback IP) |
-| `POST /api/attendance` | `attendanceIpLimiter` | 120/menit | IP |
-| `POST /api/cards` | `writeIpLimiter` | 30/menit | IP |
-| `POST /api/students` | `writeIpLimiter` | 30/menit | IP |
+| `POST /api/attendance` | `attendanceIpLimiter` | 600/menit | IP |
+| `POST /api/cards` | `writeIpLimiter` | 60/menit | IP |
+| `POST /api/students` | `writeIpLimiter` | 60/menit | IP |
+| `PUT /api/students/:id`, `DELETE /api/students/:id` | `writeIpLimiter` | 60/menit | IP |
+| `GET /api/attendance/today` | `readIpLimiter` | 120/menit | IP |
+| `GET /api/cards` | `readIpLimiter` | 120/menit | IP |
+| `GET /api/students`, `GET /api/students/active` | `readIpLimiter` | 120/menit | IP |
+| `GET /api/attendance/stream` (SSE) | `sseIpLimiter` | 20/menit | IP |
 
 Header `RateLimit-*` dikirim (standard `draft-8`).
 
 > Catatan:
 > - Key generator memakai `ipKeyGenerator()` dari express-rate-limit untuk kompatibilitas IPv6.
-> - `writeIpLimiter` memakai `skipSuccessfulRequests: true` — request yang sukses (status < 400) tidak dihitung ke kuota, jadi hanya percobaan gagal/spam yang terbatasi.
+> - Semua limiter menghitung **semua** request (sukses maupun gagal). `writeIpLimiter` khususnya tidak lagi memakai `skipSuccessfulRequests` — request tulis yang sukses (mis. hapus massal) ikut dihitung ke kuota 60/menit/IP.
+> - `readIpLimiter` dan `sseIpLimiter` dipasang pada endpoint baca agar beban dari refresh/pagination/script tidak membebani database; batasnya sengaja longgar agar tidak mengganggu penggunaan normal dashboard.
 
 ---
 
@@ -702,14 +709,17 @@ Error handling terpusat di `src/middleware/errorHandler.ts` yang **menelusuri ra
 
 | Kondisi | Status | Pesan |
 |---------|--------|-------|
-| `ER_DUP_ENTRY` (duplikat) | 409 | `Data sudah ada dalam sistem` |
+| `ER_DUP_ENTRY` (duplikat NIS / absensi) | 409 | `Data sudah ada dalam sistem` |
+| `ER_ROW_IS_REFERENCED_2` / `ER_ROW_IS_REFERENCED` (FK RESTRICT) | 409 | `Siswa memiliki data kartu atau absensi dan tidak dapat dihapus` |
 | `ECONNREFUSED`, `PROTOCOL_CONNECTION_LOST`, `ENOTFOUND`, `POOL_ENQUEUELIMIT`, `ECONNRESET` | 503 | `Database tidak dapat dihubungi` |
 | Error database lain (`ER_*`) | 500 | `Terjadi kesalahan pada database` |
 | Error lain (dengan `statusCode`) | sesuai | `Terjadi kesalahan pada server` |
 
 Setiap error menyertakan `errorId` unik untuk memudahkan pencocokan dengan log server.
 
-**Duplikasi absensi** juga di-handle di service layer (`isDuplicateEntryError`) untuk menangani race condition dua tap bersamaan pada siswa yang sama.
+**Duplikasi absensi** juga di-handle di service layer (`isDuplicateEntryError`) untuk menangani race condition dua tap bersamaan pada siswa yang sama — query pre-check & race handler dipusatkan pada satu helper (`findDuplicate`) agar logika konsisten.
+
+**Integritas referensi** dijaga oleh FK RESTRICT di schema: siswa dengan kartu/absensi tidak bisa dihapus (ditangkap service sebagai `isForeignKeyError` → 409), dan duplikat NIS diblokir unique index `uq_students_nis`.
 
 **Connection pool** (`src/db/pool.ts`): `connectionLimit: 10`, `queueLimit: 100`, keep-alive aktif. Antrian penuh → `POOL_ENQUEUELIMIT` → 503 (mencegah request menggantung saat DB penuh).
 
@@ -802,7 +812,7 @@ curl -N http://localhost:3000/api/attendance/stream
 ```
 1. Kartu RFID ditempelkan ke reader
 2. Reader mengirim UID ke server via POST /api/attendance
-3. Rate limit dicek (12/menit per UID, 120/menit per IP)
+3. Rate limit dicek (12/menit per UID, 600/menit per IP)
 4. Server validasi format UID (Zod)
 5. Server cari kartu aktif dengan UID tersebut (JOIN cards + students)
    ├── Jika tidak ditemukan → 404 "Kartu tidak terdaftar"

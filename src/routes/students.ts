@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import * as service from '../services/students.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { validate, validateQuery } from '../middleware/validate.js';
-import { writeIpLimiter } from '../middleware/rateLimit.js';
+import { writeIpLimiter, readIpLimiter } from '../middleware/rateLimit.js';
 import { sendResult } from '../utils/http.js';
 import {
   RegisterStudentSchema,
@@ -17,12 +17,12 @@ import {
 
 const router = Router();
 
-router.get('/active', asyncHandler(async (_req: Request, res: Response) => {
+router.get('/active', readIpLimiter, asyncHandler(async (_req: Request, res: Response) => {
   const data = await service.listActive();
   res.json({ success: true, data });
 }));
 
-router.get('/', validateQuery(GetStudentsQuerySchema), asyncHandler(async (req: Request, res: Response) => {
+router.get('/', validateQuery(GetStudentsQuerySchema), readIpLimiter, asyncHandler(async (req: Request, res: Response) => {
   const { limit, offset, q } = req.query as unknown as GetStudentsQueryInput;
   const result = await service.listStudents(limit, offset, q);
   res.json({ success: true, ...result });

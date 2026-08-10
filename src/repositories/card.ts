@@ -1,7 +1,7 @@
 import { eq, and, desc } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { cards, students } from '../db/schema.js';
-import { countRows, getInsertId } from '../db/helpers.js';
+import { countRows, getInsertId, clampPagination } from '../db/helpers.js';
 
 export interface ActiveCardRow {
   uid: string;
@@ -41,13 +41,14 @@ export async function insertCard(uid: string, studentId: number): Promise<number
 }
 
 export async function listRecent(limit: number = 20, offset: number = 0): Promise<{ data: RecentCardRow[]; total: number }> {
+  const page = clampPagination(limit, offset, 100);
   const data = await db
     .select(recentColumns)
     .from(cards)
     .innerJoin(students, eq(cards.studentId, students.id))
     .orderBy(desc(cards.id))
-    .limit(limit)
-    .offset(offset);
+    .limit(page.limit)
+    .offset(page.offset);
 
   const total = await countRows(cards);
 

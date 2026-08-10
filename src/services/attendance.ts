@@ -9,20 +9,25 @@ import { env } from '../config/env.js';
 import { getCurrentDate, getCurrentTime, determineStatus } from '../utils/date.js';
 import { writeOrDuplicate } from '../utils/insert.js';
 import { buildStudentInfo } from '../utils/format.js';
-import type { AttendanceDuplicate, AttendanceResult, AttendanceStatus } from '../types/attendance.js';
+import type { AttendanceDuplicate, AttendanceResult } from '../types/attendance.js';
 import type { CardWithStudent } from '../types/card.js';
 
-function handleDuplicate(card: CardWithStudent, status?: AttendanceStatus, time?: string): AttendanceDuplicate {
-  const studentInfo = buildStudentInfo(card);
-  broadcast('attendance:duplicate', { ...studentInfo, time, status });
+async function findDuplicate(card: CardWithStudent, date: string): Promise<AttendanceDuplicate | null> {
+  const existing = await attendanceRepo.findTodayAttendance(card.student_id, date);
+  if (!existing) return null;
+
+  const record = toAttendanceRecord(existing);
+  const student = buildStudentInfo(card);
+  broadcast('attendance:duplicate', { ...student, time: record.time, status: record.status });
+
   return {
     success: false,
     is_duplicate: true,
     message: 'Sudah absen hari ini',
     statusCode: 409,
-    student: studentInfo,
-    status,
-    time,
+    student,
+    status: record.status,
+    time: record.time,
   };
 }
 
@@ -35,12 +40,9 @@ export async function processAttendance(uid: string): Promise<AttendanceResult |
 
   const card = toCardWithStudent(rawCard);
   const date = getCurrentDate();
-  const existing = await attendanceRepo.findTodayAttendance(card.student_id, date);
 
-  if (existing) {
-    const record = toAttendanceRecord(existing);
-    return handleDuplicate(card, record.status, record.time);
-  }
+  const duplicate = await findDuplicate(card, date);
+  if (duplicate) return duplicate;
 
   const threshold = (await settingRepo.get('late_threshold')) ?? env.lateThreshold;
   const time = getCurrentTime();
@@ -48,23 +50,19 @@ export async function processAttendance(uid: string): Promise<AttendanceResult |
 
   const conflict = await writeOrDuplicate(
     () => attendanceRepo.insertAttendance(card.student_id, date, time, status),
-    async () => {
-      const duplicate = await attendanceRepo.findTodayAttendance(card.student_id, date);
-      const record = duplicate ? toAttendanceRecord(duplicate) : undefined;
-      return handleDuplicate(card, record?.status, record?.time);
-    },
+    () => findDuplicate(card, date),
   );
   if (conflict) return conflict;
 
-  const studentInfo = buildStudentInfo(card);
+  const student = buildStudentInfo(card);
 
-  broadcast('attendance:new', { ...studentInfo, time, status });
+  broadcast('attendance:new', { ...student, time, status });
 
   return {
     success: true,
     message: 'Absensi berhasil',
     statusCode: 200,
-    student: studentInfo,
+    student,
     status,
     time,
   };

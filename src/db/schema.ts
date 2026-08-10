@@ -6,12 +6,16 @@ export const students = mysqlTable('students', {
   class: varchar('class', { length: 16 }).notNull(),
   isActive: boolean('is_active').notNull().default(true),
   createdAt: timestamp('created_at', { mode: 'date' }),
-});
+}, (table) => ({
+  nisUnique: uniqueIndex('uq_students_nis').on(table.nis),
+}));
 
 export const cards = mysqlTable('cards', {
   id: int('id').primaryKey().autoincrement(),
   uid: varchar('uid', { length: 32 }).notNull(),
-  studentId: int('student_id').notNull(),
+  studentId: int('student_id')
+    .notNull()
+    .references(() => students.id, { onDelete: 'restrict', onUpdate: 'cascade' }),
   isActive: boolean('is_active').notNull().default(true),
   createdAt: timestamp('created_at', { mode: 'date' }),
 }, (table) => ({
@@ -20,7 +24,9 @@ export const cards = mysqlTable('cards', {
 
 export const attendance = mysqlTable('attendance', {
   id: int('id').primaryKey().autoincrement(),
-  studentId: int('student_id').notNull(),
+  studentId: int('student_id')
+    .notNull()
+    .references(() => students.id, { onDelete: 'restrict', onUpdate: 'cascade' }),
   date: date('date', { mode: 'string' }).notNull(),
   time: time('time').notNull(),
   status: varchar('status', { length: 20 }).notNull(),

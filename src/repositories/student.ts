@@ -1,7 +1,7 @@
 import { eq, desc, like, or, type SQL } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { students } from '../db/schema.js';
-import { countRows, getInsertId, getAffectedRows } from '../db/helpers.js';
+import { countRows, getInsertId, getAffectedRows, clampPagination } from '../db/helpers.js';
 
 export interface StudentListItem {
   id: number;
@@ -75,12 +75,13 @@ export async function deleteStudent(id: number): Promise<number> {
 }
 
 export async function listStudents(limit: number = 20, offset: number = 0, search?: string): Promise<{ data: StudentRow[]; total: number }> {
+  const page = clampPagination(limit, offset, 100);
   const where = search ? buildSearchWhere(search) : undefined;
 
   const query = db.select(fullColumns).from(students);
   const data = where
-    ? await query.where(where).orderBy(desc(students.id)).limit(limit).offset(offset)
-    : await query.orderBy(desc(students.id)).limit(limit).offset(offset);
+    ? await query.where(where).orderBy(desc(students.id)).limit(page.limit).offset(page.offset)
+    : await query.orderBy(desc(students.id)).limit(page.limit).offset(page.offset);
 
   const total = await countRows(students, where);
 

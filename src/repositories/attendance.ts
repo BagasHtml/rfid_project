@@ -1,14 +1,14 @@
 import { eq, and, desc } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { attendance, students } from '../db/schema.js';
-import { countRows, getInsertId } from '../db/helpers.js';
+import { countRows, getInsertId, clampPagination } from '../db/helpers.js';
 import type { AttendanceStatus } from '../types/attendance.js';
 
 export interface AttendanceRow {
   id: number;
   studentId: number;
-  date: Date | string;
-  time: Date | string;
+  date: string;
+  time: string;
   status: string;
 }
 
@@ -59,14 +59,15 @@ export async function getTodayStats(date: string): Promise<{ onTime: number; lat
 }
 
 export async function getTodayList(date: string, limit: number = 100, offset: number = 0): Promise<{ data: AttendanceWithStudentRow[]; total: number }> {
+  const page = clampPagination(limit, offset, 200);
   const data = await db
     .select(withStudentColumns)
     .from(attendance)
     .innerJoin(students, eq(attendance.studentId, students.id))
     .where(eq(attendance.date, date))
     .orderBy(desc(attendance.time))
-    .limit(limit)
-    .offset(offset);
+    .limit(page.limit)
+    .offset(page.offset);
 
   const total = await countRows(attendance, eq(attendance.date, date));
 
