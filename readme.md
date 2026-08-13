@@ -1,11 +1,13 @@
 # Dokumentasi Sistem Absensi RFID
 
-Sistem absensi berbasis kartu RFID untuk kelas **XI RPL 5** SMK Taruna Bangsa. Terdiri dari **reader/ESP32**, **server API** (Node.js + Express), dan **dashboard web** real-time dengan desain modern ala Lessa (sidebar hijau-emerald, metric bar, notifikasi live via SSE).
+Sistem absensi berbasis kartu RFID untuk **SMK Taruna Bangsa** (multi-kelas). Terdiri dari **reader/ESP32**, **server API** (Node.js + Express + TypeScript), dan **dashboard web** real-time dengan sistem **login & peran** (admin + wali kelas), desain modern ala Lessa (sidebar hijau-emerald, metric bar, notifikasi live via SSE).
 
 ## Daftar Isi
 
+- [Fitur Utama](#fitur-utama)
 - [Tangkapan Layar](#tangkapan-layar)
 - [Desain UI/UX](#desain-uiux)
+- [Autentikasi & Peran](#autentikasi--peran)
 - [Arsitektur](#arsitektur)
 - [Tech Stack](#tech-stack)
 - [Struktur Proyek](#struktur-proyek)
@@ -14,18 +16,46 @@ Sistem absensi berbasis kartu RFID untuk kelas **XI RPL 5** SMK Taruna Bangsa. T
 - [Rate Limiting](#rate-limiting)
 - [Penanganan Error](#penanganan-error)
 - [Cara Menggunakan](#cara-menggunakan)
+- [Scripts](#scripts)
 - [Alur Kerja Sistem](#alur-kerja-sistem)
 - [Environment Variables](#environment-variables)
 
 ---
 
+## Fitur Utama
+
+- **Login & logout** dengan sesi aman (cookie `sid` bertanda HMAC-SHA256, berlaku 12 jam).
+- **Dua peran**: **Admin** (class = NULL) dan **Wali Kelas** (memiliki `class`).
+- **Pembatasan akses per kelas** — wali kelas hanya bisa melihat/input absensi kelasnya sendiri (ditegakkan di API dan SSE real-time).
+- **Pemantauan kehadiran siswa** (admin): status **Belum Absen / Tepat Waktu / Terlambat** per siswa per hari, dengan pencarian & pagination.
+- **Manajemen kelas & akun wali** (admin): buat kelas (otomatis membuat akun wali), reset password default, hapus akun wali.
+- **Import siswa massal** (admin): format `NIS;Nama;Kelas`, NIS duplikat otomatis dilewati.
+- **Riwayat absensi per siswa** (modal, klik baris).
+- **Live update** via SSE (event `attendance:new`, `attendance:duplicate`) — di-filter per kelas.
+- **Pagination** dengan batas maksimal per endpoint (defense-in-depth).
+- **Rate limiting** per UID / per IP / per username login.
+
+---
+
 ## Tangkapan Layar
 
-### Halaman Absensi (`/`)
+### Halaman Login (`/login`)
+
+![Halaman Login](docs/screenshots/halaman-login.png)
+
+Form masuk dengan username & password. Redirect otomatis sesuai peran (admin → `/`, wali kelas → `/kelas/:nama-kelas`).
+
+### Halaman Absensi Admin (`/`)
 
 ![Halaman Absensi](docs/screenshots/halaman-absensi.png)
 
-Dashboard utama: sidebar navigasi, metric bar (Total Siswa / Hadir / Terlambat / Belum Absen), kartu scan RFID, dan tabel absensi hari ini.
+Dashboard admin: sidebar navigasi, metric bar (Total Siswa / Hadir / Terlambat / Belum Absen), kartu scan RFID, tabel absensi hari ini (dengan filter kelas), **pemantauan kehadiran siswa**, kelola kelas & akun wali, serta import siswa massal.
+
+### Halaman Absensi Kelas (`/kelas/:namaKelas`)
+
+![Halaman Absensi Kelas](docs/screenshots/halaman-absensi-kelas.png)
+
+Dashboard wali kelas: metric bar, kartu scan RFID, dan tabel absensi **kelasnya sendiri** (badge nama kelas).
 
 ### Halaman Registrasi Kartu (`/register`)
 
@@ -37,7 +67,7 @@ Form pendaftaran kartu (UID + pilih siswa) dan tabel kartu terdaftar.
 
 ![Halaman Daftar Siswa](docs/screenshots/halaman-daftar-siswa.png)
 
-Form pendaftaran siswa dan tabel siswa (dengan pencarian).
+Form pendaftaran siswa, tabel siswa (dengan pencarian), edit/hapus, dan riwayat absensi.
 
 ---
 
@@ -58,27 +88,40 @@ Dashboard diredesain dengan gaya **Lessa** — ringan, emerald, dan modern. Selu
 
 ```
 ┌──────────────┬────────────────────────────────────┐
-│              │  Topbar: sapaan + tanggal + status │
-│   Sidebar    │  koneksi (pill real-time)          │
+│              │  Topbar: judul + tanggal + pill    │
+│   Sidebar    │  koneksi + user pill + logout      │
 │   (240px)    ├────────────────────────────────────┤
 │   logo       │  Metric bar 4 kolom:               │
-│   Menu:      │  [Total] [Hadir] [Terlambat] [Belum]│
-│   Dashboard  │────────────────────────────────────│
-│   Daftar     │  Kartu scan RFID (input UID)       │
-│   Kartu      ├────────────────────────────────────┤
-│   Daftar     │  Tabel absensi hari ini            │
-│   Siswa      │  (live update via SSE)             │
-│  promo card  │                                    │
+│   Menu       │  [Total] [Hadir] [Terlambat] [Belum]│
+│   (per role) │────────────────────────────────────│
+│  promo card  │  Kartu scan RFID (input UID)       │
+│              ├────────────────────────────────────┤
+│              │  Tabel absensi + (admin) monitor   │
+│              │  + kelola kelas + import siswa     │
 └──────────────┴────────────────────────────────────┘
 ```
 
 **Fitur UI:**
 
-- **Sidebar tetap** (240 px desktop, off-canvas di mobile) berisi logo sekolah, menu `Dashboard` / `Daftar Kartu` / `Daftar Siswa`, dan promo card "SMK Taruna Bangsa".
-- **Metric bar** di halaman `index` menampilkan 4 angka: **Total Siswa**, **Hadir**, **Terlambat**, **Belum Absen** — ter-update otomatis via SSE setiap ada tap baru.
-- **Connection pill** di topbar (`/` saja) menunjukkan status koneksi real-time (hijau = terhubung, oranye = menghubung, merah = putus).
+- **Sidebar tetap** (240 px desktop, off-canvas di mobile) menyesuaikan peran: admin melihat `Absensi` / `Daftar Kartu` / `Daftar Siswa`, wali kelas hanya melihat `Absensi Kelas`.
+- **Metric bar** menampilkan 4 angka: **Total Siswa**, **Hadir**, **Terlambat**, **Belum Absen** — ter-update otomatis via SSE setiap ada tap baru.
+- **Connection pill** di topbar (halaman absensi saja) menunjukkan status koneksi real-time (hijau = terhubung, oranye = menghubung, merah = putus).
+- **User pill** menampilkan peran (Admin / nama kelas) dan username, plus tombol **Keluar**.
 - **Toast notification** muncul saat ada absensi baru (sukses/duplikat/error).
-- **Cache-busting** `?v=3` pada `style.css`, `app.js`, `register.js`, `students.js`.
+- **Modal riwayat absensi** — klik baris siswa untuk melihat riwayat 30 hari terakhir.
+- **Cache-busting** `?v=...` pada `style.css` dan semua file JS.
+
+---
+
+## Autentikasi & Peran
+
+- **Sesi**: token `base64url(JSON payload) + HMAC-SHA256 signature` disimpan di cookie `sid` (`HttpOnly`, `SameSite=Lax`, `Secure` di production). TTL 12 jam.
+- **Password**: di-hash dengan `scrypt` (salt 16-byte acak, format `scrypt:<salt>:<hash>`), verifikasi memakai `timingSafeEqual`.
+- **Peran** ditentukan dari kolom `users.class`:
+  - `class = NULL` → **admin** (akses semua halaman/kelas).
+  - `class = "XII RPL 1"` → **wali kelas** (hanya kelas tersebut).
+- **Class scope** ditegakkan di `src/middleware/auth.ts` (`enforceClassScope`): non-admin yang meminta data kelas lain mendapat `403`.
+- **Akun default** dibuat via `npm run seed:users` — lihat [Cara Menggunakan](#cara-menggunakan).
 
 ---
 
@@ -103,16 +146,17 @@ Repository Layer (repositories/)
 | Lapisan | Peran |
 |---------|-------|
 | **View** | EJS templates + static files (CSS, JS) untuk UI |
-| **Route** | Menangani HTTP request, validasi input via Zod (middleware `validate`), memanggil service |
-| **Service** | Logic bisnis: proses absensi, tentu status tepat waktu/terlambat, registrasi kartu |
+| **Route** | Menangani HTTP request, validasi input via Zod (middleware `validate`/`validateQuery`), memanggil service |
+| **Service** | Logic bisnis: proses absensi, tentu status tepat waktu/terlambat, registrasi kartu, login, kelola kelas |
 | **Repository** | Akses database via Drizzle ORM (parameterized queries), return typed results; pagination di-clamp internal (`clampPagination`) sebagai defense-in-depth |
 
 Komponen tambahan:
 
-- **SSE (Server-Sent Events)**: Real-time push notifikasi dari server ke client ketika ada absensi baru (`/api/attendance/stream`)
-- **Middleware**: `requestLogger` (log request), `errorHandler` (error handling terpusat), `asyncHandler` (wrapper async route), `validate`/`validateQuery` (Zod), `rateLimit` (anti-spam)
-- **Graceful Shutdown**: Tangani `SIGTERM`/`SIGINT`, tutup HTTP server dan database pool dengan timeout 10 detik
-- **Rate Limiting**: express-rate-limit untuk mencegah spam/tap berulang
+- **SSE (Server-Sent Events)**: Real-time push notifikasi ketika ada absensi baru (`/api/attendance/stream`), di-filter per kelas wali.
+- **Autentikasi**: `requireAuth` (parse & verifikasi cookie sesi), `requireAdmin`, `enforceClassScope`, `requirePageAuth`/`requirePageAdmin` untuk halaman.
+- **Middleware**: `requestLogger`, `errorHandler` (error handling terpusat + telusur `cause`), `asyncHandler` (wrapper async route), `validate`/`validateQuery` (Zod), `rateLimit` (anti-spam).
+- **Result helpers**: `ok()`/`fail()` di `src/utils/http.ts` untuk membentuk respons JSON sukses/gagal secara konsisten.
+- **Graceful Shutdown**: tangani `SIGTERM`/`SIGINT`, tutup HTTP server dan database pool dengan timeout 10 detik.
 
 ---
 
@@ -131,6 +175,7 @@ Komponen tambahan:
 | express-rate-limit | ^8.6 | Rate limiting |
 | dotenv | ^16.4 | Environment variables |
 | tsx | ^4.19 | TypeScript runtime (dev) |
+| node:crypto | built-in | scrypt (password) + HMAC-SHA256 (sesi) |
 
 ---
 
@@ -140,71 +185,89 @@ Komponen tambahan:
 rfid_project/
 ├── database/
 │   ├── schema.sql           # Skema database (DDL - referensi)
-│   └── seed.sql             # Data awal (DML)
+│   └── seed.sql             # Data awal siswa (DML)
 ├── public/
 │   ├── css/
 │   │   └── style.css        # Stylesheet
 │   ├── images/
 │   │   └── logo.webp        # Logo sekolah
 │   └── js/
-│       ├── app.js           # Client JS halaman utama (SSE, fetch, UI)
+│       ├── http.js          # Helper fetch (auth, error handling)
+│       ├── login.js         # Client JS halaman login
+│       ├── app.js           # Client JS absensi (SSE, fetch, UI)
+│       ├── admin.js         # Client JS admin (monitor, kelas, import, riwayat)
 │       ├── register.js      # Client JS halaman registrasi kartu
 │       └── students.js      # Client JS halaman manajemen siswa
+├── scripts/
+│   ├── seed-users.mjs       # Seed akun admin + wali kelas (scrypt)
+│   └── stress-test.mjs      # Stress test absensi (concurrent)
 ├── src/
 │   ├── config/
 │   │   └── env.ts           # Environment config (validasi Zod)
 │   ├── db/
 │   │   ├── index.ts         # Drizzle client
 │   │   ├── pool.ts          # Connection pool mysql2 (config koneksi DB)
-│   │   ├── helpers.ts       # Helper query: getInsertId(), getAffectedRows(), countRows(), clampPagination()
-│   │   └── schema.ts        # Definisi tabel (students, cards, attendance, settings)
+│   │   ├── helpers.ts       # getInsertId(), getAffectedRows(), countRows(), findFirst(), clampPagination()
+│   │   └── schema.ts        # Definisi tabel (students, cards, attendance, settings, users)
 │   ├── mappers/
-│   │   ├── attendance.ts    # Mapping hasil query → tipe AttendanceWithStudent
-│   │   ├── card.ts          # Mapping hasil query → tipe CardWithStudent
-│   │   └── student.ts       # Mapping hasil query → tipe StudentWithDates
+│   │   ├── attendance.ts    # Mapping query → AttendanceRecord / AttendanceWithStudent / StudentStatus
+│   │   ├── card.ts          # Mapping query → CardWithStudent / CardRecord
+│   │   └── student.ts       # Mapping query → StudentRecord
 │   ├── middleware/
 │   │   ├── asyncHandler.ts  # Wrapper async route handler
+│   │   ├── auth.ts          # requireAuth, requireAdmin, enforceClassScope, requirePageAuth/Admin
 │   │   ├── errorHandler.ts  # Error handling terpusat (root cause aware)
-│   │   ├── rateLimit.ts     # Rate limiter per-UID dan per-IP
+│   │   ├── rateLimit.ts     # Rate limiter per-UID / per-IP / per-username
 │   │   ├── requestLogger.ts # Logging request
 │   │   └── validate.ts      # Validasi body (validate) & query (validateQuery)
 │   ├── repositories/
-│   │   ├── attendance.ts    # Query absensi (+ getTodayStats)
+│   │   ├── attendance.ts    # Query absensi (+ stats, status per siswa, riwayat)
 │   │   ├── card.ts          # Query kartu
-│   │   ├── setting.ts       # Query settings (dengan cache 60s)
-│   │   └── student.ts       # Query siswa (+ countActive)
+│   │   ├── setting.ts       # Query settings (dengan cache in-memory 10 detik)
+│   │   ├── student.ts       # Query siswa (+ search, bulk insert)
+│   │   └── user.ts          # Query akun users (login, akun wali kelas)
 │   ├── routes/
-│   │   ├── attendance.ts    # API absensi + SSE
+│   │   ├── attendance.ts    # API absensi + status + SSE
 │   │   ├── cards.ts         # API registrasi/daftar kartu
-│   │   ├── pages.ts         # Route halaman web (/, /register, /students)
-│   │   └── students.ts      # API daftar siswa
+│   │   ├── students.ts      # API siswa (CRUD, import, riwayat)
+│   │   ├── auth.ts          # API login/logout/ganti password/me
+│   │   ├── admin.ts         # API kelola kelas & akun wali
+│   │   └── pages.ts         # Route halaman web (/, /login, /kelas, /register, /students)
 │   ├── services/
-│   │   ├── attendance.ts    # Logic bisnis absensi (+ getTodayList dengan stats)
+│   │   ├── attendance.ts    # Logic absensi (+ getTodayList/getStatusList dengan stats)
 │   │   ├── cards.ts         # Logic registrasi kartu
-│   │   └── students.ts      # Logic daftar siswa
+│   │   ├── students.ts      # Logic siswa (CRUD, import, riwayat)
+│   │   ├── auth.ts          # Logic login/logout/ganti password
+│   │   └── admin.ts         # Logic kelola kelas & akun wali
 │   ├── sse/
-│   │   └── clients.ts       # Manajemen koneksi SSE (heartbeat, broadcast)
+│   │   └── clients.ts       # Manajemen koneksi SSE (heartbeat, filter kelas, broadcast)
 │   ├── types/
-│   │   ├── attendance.ts    # Type AttendanceWithStudent & AttendancePostResult
-│   │   ├── card.ts          # Type CardWithStudent
-│   │   ├── index.ts         # Type definitions umum
-│   │   └── student.ts       # Type StudentWithDates
+│   │   ├── attendance.ts    # Type AttendanceRecord, AttendanceResult, dst.
+│   │   ├── card.ts          # Type CardWithStudent, CardRecord
+│   │   ├── student.ts       # Type StudentInfo, StudentRecord
+│   │   ├── user.ts          # Type AuthUser, LoginResult
+│   │   └── admin.ts         # Type ClassListEntry, AdminActionResult
 │   ├── utils/
+│   │   ├── auth.ts          # scrypt hash/verify, sesi HMAC (create/verify), cookie
 │   │   ├── date.ts          # Tanggal/waktu timezone-aware + determineStatus
 │   │   ├── error.ts         # rootCause() & isDuplicateEntryError()
-│   │   ├── format.ts        # Formatter respons (sendError, SSE helpers)
-│   │   ├── http.ts          # sendResult() — respons JSON sukses/error terpusat
+│   │   ├── format.ts        # buildStudentInfo(), normalizeClassName()
+│   │   ├── http.ts          # sendResult(), ok(), fail()
 │   │   └── insert.ts        # writeOrDuplicate() — insert dengan graceful duplicate
 │   ├── validators/
-│   │   ├── attendance.ts    # Zod schema absensi
+│   │   ├── attendance.ts    # Zod schema absensi + query today/status
 │   │   ├── cards.ts         # Zod schema registrasi kartu
-│   │   └── students.ts      # Zod schema registrasi siswa
+│   │   ├── students.ts      # Zod schema siswa (CRUD, import, query, history)
+│   │   ├── auth.ts          # Zod schema login / ganti password
+│   │   └── admin.ts         # Zod schema nama kelas
 │   ├── views/
-│   │   ├── index.ejs        # Halaman utama absensi (dashboard + metric bar)
+│   │   ├── login.ejs        # Halaman login
+│   │   ├── index.ejs        # Dashboard admin (absensi + monitor + kelas + import)
+│   │   ├── perkelas.ejs     # Dashboard wali kelas
 │   │   ├── register.ejs     # Halaman registrasi kartu
 │   │   ├── students.ejs     # Halaman manajemen siswa
 │   │   └── partials/
-│   │       ├── header.ejs   # Sidebar + topbar (logo, menu, connection pill)
+│   │       ├── header.ejs   # Sidebar + topbar (peran, connection pill, logout)
 │   │       ├── footer.ejs   # Penutup layout + script cache-busting
 │   │       ├── table.ejs    # Tabel daftar absensi
 │   │       └── status.ejs   # Toast container
@@ -223,6 +286,7 @@ rfid_project/
 ### Entity Relationship
 
 ```
+users (admin / wali kelas)
 students 1───* cards
 students 1───* attendance
 settings (key-value store)
@@ -258,7 +322,7 @@ settings (key-value store)
 | time | TIME | Jam absensi |
 | status | VARCHAR(20) | `Tepat Waktu` / `Terlambat` |
 
-- **UNIQUE constraint** `unique_daily_attendance` pada `(student_id, date)` untuk mencegah duplikasi (race condition handling)
+- **UNIQUE constraint** `uq_attendance_student_date` pada `(student_id, date)` untuk mencegah duplikasi (race condition handling)
 - **FK `student_id`** RESTRICT: siswa dengan data kartu/absensi tidak dapat dihapus (blokir `DELETE /students/:id`)
 
 ### Tabel `settings`
@@ -267,15 +331,23 @@ settings (key-value store)
 |-------|------|------------|
 | key | VARCHAR(64) PK | Key setting |
 | value | VARCHAR(255) | Value setting |
-| description | VARCHAR(255) | Deskripsi |
-| updated_at | TIMESTAMP | Diupdate |
 
 **Default settings:**
-- `late_threshold` = `07:00:00` (batas jam keterlambatan, dibaca dengan cache in-memory 60 detik)
+- `late_threshold` = `07:00:00` (batas jam keterlambatan, dibaca dengan cache in-memory **10 detik**)
 
-> **Catatan:** `database/seed.sql` saat ini hanya berisi **32 siswa kelas XI RPL 5** (NIS `25019203`–`242510420`). Tabel `cards` **tidak** di-seed — kartu RFID harus didaftarkan lewat halaman `/register` atau endpoint `POST /api/cards`.
+### Tabel `users`
 
-> **Catatan:** `database/schema.sql` hanyalah referensi DDL. Definisi tabel resmi untuk aplikasi ada di `src/db/schema.ts` — termasuk **FK** (`cards.student_id`, `attendance.student_id`) dan **unique index** (`uq_cards_uid`, `uq_students_nis`, `unique_daily_attendance`). Sinkronkan database dari definisi resmi dengan `npm run db:push` (atau `npm run db:migrate`). Pada database lama, jalankan `db:push` agar constraint aktif — pastikan tidak ada NIS duplikat atau data yatim terlebih dahulu.
+| Kolom | Tipe | Keterangan |
+|-------|------|------------|
+| id | INT UNSIGNED PK | Auto increment |
+| username | VARCHAR(50) UNIQUE | Username login (unique index `uq_users_username`) |
+| password_hash | VARCHAR(255) | Hash password (scrypt) |
+| class | VARCHAR(20) NULL | Kelas wali; `NULL` berarti admin |
+| created_at | TIMESTAMP | Waktu akun dibuat (nullable) |
+
+> **Catatan:** `database/seed.sql` saat ini hanya berisi siswa contoh (kelas XI RPL 5). Tabel `cards` **tidak** di-seed — kartu RFID didaftarkan lewat halaman `/register` atau endpoint `POST /api/cards`. Akun pengguna dibuat via `npm run seed:users` atau `POST /api/admin/classes`.
+
+> **Catatan:** `database/schema.sql` hanyalah referensi DDL. Definisi tabel resmi untuk aplikasi ada di `src/db/schema.ts` — termasuk **FK** (`cards.student_id`, `attendance.student_id`) dan **unique index** (`uq_cards_uid`, `uq_students_nis`, `uq_attendance_student_date`, `uq_users_username`). Sinkronkan database dari definisi resmi dengan `npm run db:push` (atau `npm run db:migrate`).
 
 ### Cara Setup
 
@@ -286,15 +358,18 @@ mysql -u root -p -e "CREATE DATABASE rfid_attendance"
 # 2. Sinkronkan skema (definisi resmi: src/db/schema.ts)
 npm run db:push
 
-# 3. Import seed data (opsional, data contoh)
+# 3. Import seed data siswa (opsional, data contoh)
 mysql -u root -p rfid_attendance < database/seed.sql
+
+# 4. Seed akun login (admin + wali kelas) — password default "ganti123"
+npm run seed:users
 ```
 
 ---
 
 ## Endpoint API
 
-Semua respons API berupa JSON. Endpoint yang tidak dikenal di bawah `/api/*` mengembalikan 404 JSON.
+Semua respons API berupa JSON. Endpoint di bawah `/api/*` **wajib login** (kecuali `/api/auth/login` dan `/api/health`); tanpa sesi valid server mengembalikan `401`. Endpoint yang tidak dikenal di bawah `/api/*` mengembalikan `404` JSON.
 
 ### 1. Health Check
 
@@ -309,7 +384,7 @@ Cek status server dan koneksi database.
 {
   "status": "aman",
   "db": "tersambung",
-  "timestamp": "2026-07-29T10:00:00.000Z"
+  "timestamp": "2026-08-13T10:00:00.000Z"
 }
 ```
 
@@ -318,13 +393,77 @@ Cek status server dan koneksi database.
 {
   "status": "error",
   "db": "disconnected",
-  "timestamp": "2026-07-29T10:00:00.000Z"
+  "timestamp": "2026-08-13T10:00:00.000Z"
 }
 ```
 
 ---
 
-### 2. Absensi (POST)
+### 2. Autentikasi
+
+#### Login
+
+```
+POST /api/auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "ganti123"
+}
+```
+
+**Rate limit:** 5 percobaan/menit per username + 20/menit per IP.
+
+**Response 200:**
+```json
+{
+  "success": true,
+  "message": "Login berhasil",
+  "user": { "id": 1, "username": "admin", "class": null, "role": "admin" }
+}
+```
+Cookie sesi (`sid`) di-set via header `Set-Cookie`.
+
+**Response 401:**
+```json
+{ "success": false, "message": "Username atau password salah" }
+```
+
+#### Logout
+
+```
+POST /api/auth/logout
+```
+
+Menghapus cookie `sid`.
+
+#### Ganti Password
+
+```
+POST /api/auth/change-password
+Content-Type: application/json
+
+{
+  "old_password": "ganti123",
+  "new_password": "rahasia123"
+}
+```
+
+**Response 200:** `{ "success": true, "message": "Password berhasil diubah" }`
+**Response 400:** `{ "success": false, "message": "Password lama salah" }`
+
+#### Info Sesi
+
+```
+GET /api/auth/me
+```
+
+Mengembalikan `{ "success": true, "user": { id, username, class, role } }` berdasarkan cookie sesi.
+
+---
+
+### 3. Absensi (POST)
 
 ```
 POST /api/attendance
@@ -335,9 +474,9 @@ Content-Type: application/json
 }
 ```
 
-Mencatat absensi berdasarkan UID kartu RFID.
+Mencatat absensi berdasarkan UID kartu RFID. Wali kelas hanya bisa men-tap kartu siswa kelasnya sendiri.
 
-**Rate limit:** 12 permintaan/menit per UID + 600 permintaan/menit per IP.
+**Rate limit:** 12 permintaan/menit per UID + 3000 permintaan/menit per IP.
 
 **Validasi UID:**
 - Wajib diisi
@@ -349,11 +488,7 @@ Mencatat absensi berdasarkan UID kartu RFID.
 {
   "success": true,
   "message": "Absensi berhasil",
-  "student": {
-    "name": "AGUNG WIBOWO",
-    "class": "XI RPL 5",
-    "nis": "25019203"
-  },
+  "student": { "name": "AGUNG WIBOWO", "class": "XI RPL 5", "nis": "25019203" },
   "status": "Tepat Waktu",
   "time": "06:45:00"
 }
@@ -362,6 +497,7 @@ Mencatat absensi berdasarkan UID kartu RFID.
 **Response 409 (Duplikat - sudah absen hari ini):**
 ```json
 {
+  "success": false,
   "is_duplicate": true,
   "message": "Sudah absen hari ini",
   "student": { "name": "...", "class": "...", "nis": "..." },
@@ -370,45 +506,37 @@ Mencatat absensi berdasarkan UID kartu RFID.
 }
 ```
 
+**Response 403 (Kartu bukan kelas wali):**
+```json
+{ "success": false, "message": "Kartu ini bukan milik kelas Anda" }
+```
+
 **Response 404 (Kartu tidak dikenal):**
 ```json
-{
-  "success": false,
-  "message": "Kartu tidak terdaftar"
-}
+{ "success": false, "message": "Kartu tidak terdaftar" }
 ```
 
 **Response 400 (Validasi gagal):**
 ```json
-{
-  "success": false,
-  "message": "Format UID tidak valid (8-24 karakter hex)"
-}
-```
-
-**Response 429 (Rate limit):**
-```json
-{
-  "success": false,
-  "message": "Terlalu banyak percobaan, coba lagi dalam beberapa saat"
-}
+{ "success": false, "message": "Format UID tidak valid (8-24 karakter hex)" }
 ```
 
 ---
 
-### 3. Daftar Absensi Hari Ini
+### 4. Daftar Absensi Hari Ini
 
 ```
 GET /api/attendance/today?limit=100&offset=0
 ```
 
-Mendapatkan daftar absensi hari ini dengan pagination. Respons juga menyertakan **`stats`** rekap hari ini (dipakai metric bar di dashboard).
+Mendapatkan daftar absensi hari ini dengan pagination. Respons juga menyertakan **`stats`** rekap hari ini (dipakai metric bar di dashboard). Wali kelas otomatis di-scope ke kelasnya sendiri.
 
 **Query Parameters:**
 | Parameter | Tipe | Default | Keterangan |
 |-----------|------|---------|------------|
 | limit | number (1-200) | 100 | Jumlah data per halaman |
 | offset | number (>=0) | 0 | Offset data |
+| class | string | - | Filter kelas (admin saja; wali kelas selalu dikunci ke kelasnya) |
 
 **Response 200:**
 ```json
@@ -418,7 +546,7 @@ Mendapatkan daftar absensi hari ini dengan pagination. Respons juga menyertakan 
     {
       "id": 1,
       "student_id": 66,
-      "date": "2026-08-03",
+      "date": "2026-08-13",
       "time": "06:45:00",
       "status": "Tepat Waktu",
       "student_name": "AGUNG WIBOWO",
@@ -448,13 +576,50 @@ Field `stats`:
 
 ---
 
-### 4. SSE Stream (Real-time)
+### 5. Pemantauan Kehadiran Siswa
+
+```
+GET /api/attendance/status?limit=20&offset=0&q=
+```
+
+Status seluruh siswa (aktif) hari ini: **Belum Absen / Tepat Waktu / Terlambat**, dengan pagination dan pencarian. Endpoint ini dipakai section **Pemantauan Kehadiran** di dashboard admin.
+
+**Query Parameters:**
+| Parameter | Tipe | Default | Keterangan |
+|-----------|------|---------|------------|
+| limit | number (1-200) | 20 | Jumlah data per halaman |
+| offset | number (>=0) | 0 | Offset data |
+| class | string | - | Filter kelas |
+| q | string (max 50) | - | Cari NIS / nama / kelas |
+
+**Response 200:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 66,
+      "nis": "25019203",
+      "name": "AGUNG WIBOWO",
+      "class": "XI RPL 5",
+      "time": "06:45:00",
+      "status": "Tepat Waktu"
+    }
+  ],
+  "total": 32,
+  "stats": { "total_students": 32, "present": 5, "on_time": 4, "late": 1, "absent": 27 }
+}
+```
+
+---
+
+### 6. SSE Stream (Real-time)
 
 ```
 GET /api/attendance/stream
 ```
 
-Koneksi Server-Sent Events untuk menerima notifikasi real-time ketika ada absensi baru.
+Koneksi Server-Sent Events untuk menerima notifikasi real-time ketika ada absensi baru. Event di-filter per kelas (wali kelas hanya menerima event kelasnya).
 
 **Event: `attendance:new`**
 Dikirim ketika ada absensi berhasil.
@@ -463,6 +628,7 @@ Dikirim ketika ada absensi berhasil.
   "name": "AGUNG WIBOWO",
   "class": "XI RPL 5",
   "nis": "25019203",
+  "student_id": 66,
   "time": "06:45:00",
   "status": "Tepat Waktu"
 }
@@ -479,7 +645,7 @@ Dikirim ketika ada percobaan absensi duplikat.
 
 ---
 
-### 5. Registrasi Kartu (POST)
+### 7. Registrasi Kartu (POST)
 
 ```
 POST /api/cards
@@ -491,7 +657,7 @@ Content-Type: application/json
 }
 ```
 
-Mendaftarkan kartu RFID baru ke siswa tertentu.
+Mendaftarkan kartu RFID baru ke siswa tertentu (admin saja).
 
 **Rate limit:** 60 permintaan/menit per IP.
 
@@ -508,19 +674,12 @@ Mendaftarkan kartu RFID baru ke siswa tertentu.
 }
 ```
 
-**Response 404 (Siswa tidak ditemukan):**
-```json
-{ "success": false, "message": "Siswa tidak ditemukan" }
-```
-
-**Response 409 (UID sudah terdaftar):**
-```json
-{ "success": false, "message": "UID kartu sudah terdaftar" }
-```
+**Response 404:** `{ "success": false, "message": "Siswa tidak ditemukan" }`
+**Response 409:** `{ "success": false, "message": "UID kartu sudah terdaftar" }`
 
 ---
 
-### 6. Daftar Kartu Terbaru (GET)
+### 8. Daftar Kartu Terbaru (GET)
 
 ```
 GET /api/cards?limit=20&offset=0
@@ -533,6 +692,7 @@ Mendapatkan daftar kartu terdaftar (urut dari terbaru) dengan pagination.
 |-----------|------|---------|------------|
 | limit | number (1-100) | 20 | Jumlah data per halaman |
 | offset | number (>=0) | 0 | Offset data |
+| class | string | - | Filter kelas |
 
 **Response 200:**
 ```json
@@ -546,7 +706,7 @@ Mendapatkan daftar kartu terdaftar (urut dari terbaru) dengan pagination.
       "student_name": "AGUNG WIBOWO",
       "student_class": "XI RPL 5",
       "student_nis": "25019203",
-      "created_at": "2026-07-29 23:33:34"
+      "created_at": "2026-08-13 23:33:34"
     }
   ],
   "total": 12
@@ -557,19 +717,21 @@ Mendapatkan daftar kartu terdaftar (urut dari terbaru) dengan pagination.
 
 ---
 
-### 7. Daftar Siswa (GET, Pagination)
+### 9. Daftar Siswa (GET, Pagination)
 
 ```
-GET /api/students?limit=20&offset=0
+GET /api/students?limit=20&offset=0&q=
 ```
 
-Mendapatkan daftar siswa (urut dari terbaru) dengan pagination.
+Mendapatkan daftar siswa (urut dari terbaru) dengan pagination dan pencarian.
 
 **Query Parameters:**
 | Parameter | Tipe | Default | Keterangan |
 |-----------|------|---------|------------|
 | limit | number (1-100) | 20 | Jumlah data per halaman |
 | offset | number (>=0) | 0 | Offset data |
+| q | string (max 50) | - | Cari NIS / nama / kelas |
+| class | string | - | Filter kelas |
 
 **Response 200:**
 ```json
@@ -582,7 +744,7 @@ Mendapatkan daftar siswa (urut dari terbaru) dengan pagination.
       "name": "AGUNG WIBOWO",
       "class": "XI RPL 5",
       "is_active": true,
-      "created_at": "2026-07-29 23:33:34"
+      "created_at": "2026-08-13 23:33:34"
     }
   ],
   "total": 12
@@ -591,7 +753,7 @@ Mendapatkan daftar siswa (urut dari terbaru) dengan pagination.
 
 ---
 
-### 8. Registrasi Siswa (POST)
+### 10. Registrasi Siswa (POST)
 
 ```
 POST /api/students
@@ -604,16 +766,16 @@ Content-Type: application/json
 }
 ```
 
-Mendaftarkan siswa baru.
+Mendaftarkan siswa baru (admin saja).
 
 **Rate limit:** 60 permintaan/menit per IP.
 
 **Validasi:**
 - `nis`: wajib, maksimal 20 karakter (unique — duplikat ditolak)
 - `name`: wajib, maksimal 100 karakter
-- `class`: wajib, maksimal 20 karakter
+- `class`: wajib, maksimal 20 karakter (di-normalisasi ke huruf kapital)
 
-**Response 200 (Berhasil):**
+**Response 200:**
 ```json
 {
   "success": true,
@@ -622,20 +784,94 @@ Mendaftarkan siswa baru.
 }
 ```
 
-**Response 409 (NIS sudah terdaftar):**
+**Response 409:** `{ "success": false, "message": "NIS sudah terdaftar" }`
+
+---
+
+### 11. Update / Hapus Siswa
+
+```
+PUT /api/students/:id
+Content-Type: application/json
+
+{
+  "nis": "25019203",
+  "name": "AGUNG WIBOWO",
+  "class": "XII RPL 5"
+}
+```
+
+```
+DELETE /api/students/:id
+```
+
+**Response 404:** `{ "success": false, "message": "Siswa tidak ditemukan" }`
+**Response 409 (hapus):** `{ "success": false, "message": "Siswa memiliki data kartu atau absensi dan tidak dapat dihapus" }`
+
+---
+
+### 12. Import Siswa Massal (POST)
+
+```
+POST /api/students/import
+Content-Type: application/json
+
+{
+  "lines": "2024001;Budi Santoso;XII RPL 1\n2024002;Siti Aminah;XII RPL 1"
+}
+```
+
+Import banyak siswa sekaligus (admin saja). Format satu siswa per baris: `NIS;Nama;Kelas`. Baris yang NIS-nya sudah terdaftar otomatis dilewati (`skipped`).
+
+**Batasan:** maksimal 500 baris per impor.
+
+**Response 200:**
 ```json
-{ "success": false, "message": "NIS sudah terdaftar" }
+{
+  "success": true,
+  "message": "Impor selesai",
+  "added": 2,
+  "skipped": 1,
+  "errors": ["Baris 3: NIS duplikat dalam file (2024001)"]
+}
 ```
 
 ---
 
-### 9. Daftar Siswa Aktif (GET)
+### 13. Riwayat Absensi Siswa (GET)
+
+```
+GET /api/students/:id/attendance?days=30
+```
+
+Mendapatkan riwayat absensi seorang siswa (30 hari terakhir secara default).
+
+**Query Parameters:**
+| Parameter | Tipe | Default | Keterangan |
+|-----------|------|---------|------------|
+| days | number (1-100) | 30 | Jumlah hari riwayat yang diambil |
+
+**Response 200:**
+```json
+{
+  "success": true,
+  "message": "Riwayat absensi dimuat",
+  "student": { "id": 1, "nis": "25019203", "name": "AGUNG WIBOWO", "class": "XI RPL 5" },
+  "history": [
+    { "id": 10, "student_id": 1, "date": "2026-08-13", "time": "06:45:00", "status": "Tepat Waktu" }
+  ]
+}
+```
+
+---
+
+### 14. Daftar Siswa Aktif (GET)
 
 ```
 GET /api/students/active
 ```
 
-Mendapatkan daftar siswa aktif untuk dropdown registrasi kartu.
+Mendapatkan daftar siswa aktif untuk dropdown registrasi kartu (di-scope per kelas untuk wali).
 
 **Response 200:**
 ```json
@@ -647,34 +883,103 @@ Mendapatkan daftar siswa aktif untuk dropdown registrasi kartu.
 }
 ```
 
+### 15. Daftar Kelas Siswa (GET)
+
+```
+GET /api/students/classes
+```
+
+Daftar kelas yang memiliki siswa aktif (admin saja), dipakai dropdown filter.
+
+**Response 200:**
+```json
+{
+  "success": true,
+  "data": ["XI RPL 5", "XII RPL 1"]
+}
+```
+
 ---
 
-### 10. Halaman Web
+### 16. Kelola Kelas & Akun Wali (Admin)
+
+Semua endpoint di bawah memerlukan peran admin.
+
+#### Daftar Kelas
 
 ```
-GET /             → Halaman utama absensi
-GET /register     → Halaman registrasi kartu
-GET /students     → Halaman manajemen siswa
+GET /api/admin/classes
 ```
 
-**Halaman utama (`/`)** menampilkan:
-- Sidebar navigasi + topbar dengan connection pill status real-time
-- Metric bar 4 kolom: Total Siswa, Hadir, Terlambat, Belum Absen (update live via SSE)
-- Kartu scan RFID (input UID)
-- Daftar absensi hari ini (tabel dengan pagination 10/halaman)
-- Toast notification untuk absensi baru
+**Response 200:**
+```json
+{
+  "success": true,
+  "data": [
+    { "class": "XII RPL 1", "student_count": 0, "account": { "username": "xii.rpl.1", "createdAt": "2026-08-13 23:33:34" } }
+  ]
+}
+```
 
-**Halaman registrasi (`/register`)** menampilkan:
-- Form daftarkan kartu (UID + pilih siswa)
-- Tabel kartu terdaftar: UID, NIS, Nama, Kelas, Waktu Daftar (pagination 10/halaman)
-- Error handling ramah: bedakan 409 duplikat / 404 siswa / 429 rate limit
+#### Buat Kelas + Akun Wali
 
-**Halaman manajemen siswa (`/students`)** menampilkan:
-- Form daftarkan siswa (NIS, Nama, Kelas)
-- Tabel siswa terdaftar: NIS, Nama, Kelas, Waktu Daftar (pagination 10/halaman, dengan pencarian)
-- Toast feedback sukses/gagal
+```
+POST /api/admin/classes
+Content-Type: application/json
 
-Semua halaman memakai **sidebar navigasi**: **Dashboard | Daftar Kartu | Daftar Siswa** (halaman aktif diberi highlight emerald).
+{ "class": "XII RPL 6" }
+```
+
+Membuat akun wali kelas dengan username otomatis (contoh `xii.rpl.6`) dan password default.
+
+**Response 200:**
+```json
+{
+  "success": true,
+  "message": "Kelas XII RPL 6 dibuat beserta akun wali \"xii.rpl.6\"",
+  "class": "XII RPL 6",
+  "username": "xii.rpl.6",
+  "default_password": "ganti123"
+}
+```
+
+**Response 409:** `{ "success": false, "message": "Akun wali untuk kelas XII RPL 6 sudah ada (\"xii.rpl.6\")" }`
+
+#### Reset Password Akun Wali
+
+```
+POST /api/admin/classes/reset-password
+Content-Type: application/json
+
+{ "class": "XII RPL 6" }
+```
+
+Mereset password akun wali ke password default.
+
+#### Hapus Akun Wali
+
+```
+POST /api/admin/classes/remove-account
+Content-Type: application/json
+
+{ "class": "XII RPL 6" }
+```
+
+Menghapus akun wali kelas (data siswa tetap ada).
+
+---
+
+### 17. Halaman Web
+
+```
+GET /login               → Halaman login
+GET /                    → Dashboard admin (absensi + monitor + kelas + import)
+GET /kelas/:namaKelas    → Dashboard wali kelas (absensi kelasnya)
+GET /register            → Halaman registrasi kartu (admin)
+GET /students            → Halaman manajemen siswa (admin)
+```
+
+Semua halaman (kecuali `/login`) mewajibkan login; yang tidak login diarahkan ke `/login`. Non-admin yang mencoba halaman admin diarahkan ke halaman kelasnya sendiri. Wali kelas yang membuka kelas lain mendapat `403`.
 
 ---
 
@@ -684,21 +989,21 @@ Semua limiter memakai window 60 detik dan merespons `429` JSON.
 
 | Endpoint | Limiter | Limit | Key |
 |----------|---------|-------|-----|
+| `POST /api/auth/login` | `loginUserLimiter` | 5/menit | username (lowercase) |
+| `POST /api/auth/login` | `loginIpLimiter` | 20/menit | IP |
 | `POST /api/attendance` | `attendanceUidLimiter` | 12/menit | UID (fallback IP) |
-| `POST /api/attendance` | `attendanceIpLimiter` | 600/menit | IP |
+| `POST /api/attendance` | `attendanceIpLimiter` | 3000/menit | IP |
 | `POST /api/cards` | `writeIpLimiter` | 60/menit | IP |
-| `POST /api/students` | `writeIpLimiter` | 60/menit | IP |
-| `PUT /api/students/:id`, `DELETE /api/students/:id` | `writeIpLimiter` | 60/menit | IP |
-| `GET /api/attendance/today` | `readIpLimiter` | 120/menit | IP |
-| `GET /api/cards` | `readIpLimiter` | 120/menit | IP |
-| `GET /api/students`, `GET /api/students/active` | `readIpLimiter` | 120/menit | IP |
-| `GET /api/attendance/stream` (SSE) | `sseIpLimiter` | 20/menit | IP |
+| `POST /api/students`, `PUT`/`DELETE /api/students/:id`, `POST /api/students/import` | `writeIpLimiter` | 60/menit | IP |
+| `POST /api/admin/classes` dan turunannya | `writeIpLimiter` | 60/menit | IP |
+| `GET` baca (`/api/attendance/today`, `/status`, `/api/cards`, `/api/students`, dst.) | `readIpLimiter` | 120/menit | IP |
+| `GET /api/attendance/stream` (SSE) | `sseIpLimiter` | 100/menit | IP |
 
 Header `RateLimit-*` dikirim (standard `draft-8`).
 
 > Catatan:
 > - Key generator memakai `ipKeyGenerator()` dari express-rate-limit untuk kompatibilitas IPv6.
-> - Semua limiter menghitung **semua** request (sukses maupun gagal). `writeIpLimiter` khususnya tidak lagi memakai `skipSuccessfulRequests` — request tulis yang sukses (mis. hapus massal) ikut dihitung ke kuota 60/menit/IP.
+> - Semua limiter menghitung **semua** request (sukses maupun gagal). `writeIpLimiter` khususnya tidak lagi memakai `skipSuccessfulRequests` — request tulis yang sukses ikut dihitung ke kuota 60/menit/IP.
 > - `readIpLimiter` dan `sseIpLimiter` dipasang pada endpoint baca agar beban dari refresh/pagination/script tidak membebani database; batasnya sengaja longgar agar tidak mengganggu penggunaan normal dashboard.
 
 ---
@@ -742,6 +1047,7 @@ bun install
 mysql -u root -p -e "CREATE DATABASE rfid_attendance"
 npm run db:push
 mysql -u root -p rfid_attendance < database/seed.sql
+npm run seed:users
 
 # Konfigurasi environment (edit .env)
 # PORT=3000
@@ -753,6 +1059,8 @@ mysql -u root -p rfid_attendance < database/seed.sql
 # LATE_THRESHOLD=07:00:00
 # APP_TIMEZONE=Asia/Jakarta
 # CORS_ORIGIN=http://localhost:4321
+# SESSION_SECRET=change-me
+# CLASS_DEFAULT_PASSWORD=ganti123
 ```
 
 ### 2. Menjalankan
@@ -768,55 +1076,102 @@ npm run build
 npm start
 ```
 
-### 3. Testing API
+### 3. Akun Default
+
+`npm run seed:users` membuat akun berikut (password default: `ganti123`):
+
+| Username | Peran | Keterangan |
+|----------|-------|------------|
+| `admin` | Admin | Akses semua halaman & semua kelas |
+| `xii.rpl.1` | Wali kelas | Hanya kelas XII RPL 1 |
+| `xii.rpl.2` | Wali kelas | Hanya kelas XII RPL 2 |
+| ... | ... | hingga `xii.rpl.5` |
+
+> **PENTING:** Segera ganti password default setelah login pertama (via menu **Ganti Password** / `POST /api/auth/change-password`). Reset password akun wali lewat dashboard admin atau `npm run seed:users -- --reset-password <username>`.
+
+### 4. Testing API
 
 ```bash
 # Health check
 curl http://localhost:3000/api/health
 
+# Login → simpan cookie sesi
+curl -c cookies.txt -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"ganti123"}'
+
 # Daftar siswa aktif → catat id yang dipakai (mis. id 66)
-curl "http://localhost:3000/api/students/active"
+curl -b cookies.txt "http://localhost:3000/api/students/active"
 
 # Registrasi kartu untuk siswa id 66
-curl -X POST http://localhost:3000/api/cards \
+curl -b cookies.txt -X POST http://localhost:3000/api/cards \
   -H "Content-Type: application/json" \
   -d '{"uid": "A1B2C3D4E5F6", "student_id": 66}'
 
 # Absen dengan UID yang baru didaftarkan
-curl -X POST http://localhost:3000/api/attendance \
+curl -b cookies.txt -X POST http://localhost:3000/api/attendance \
   -H "Content-Type: application/json" \
   -d '{"uid": "A1B2C3D4E5F6"}'
 
 # Lihat daftar + stats hari ini
-curl "http://localhost:3000/api/attendance/today?limit=10&offset=0"
+curl -b cookies.txt "http://localhost:3000/api/attendance/today?limit=10&offset=0"
 
-# Daftar kartu terdaftar
-curl "http://localhost:3000/api/cards?limit=10&offset=0"
+# Pemantauan kehadiran siswa
+curl -b cookies.txt "http://localhost:3000/api/attendance/status?limit=10&offset=0"
+
+# Riwayat absensi siswa id 66
+curl -b cookies.txt "http://localhost:3000/api/students/66/attendance?days=30"
 
 # SSE stream (terminal terpisah)
-curl -N http://localhost:3000/api/attendance/stream
+curl -b cookies.txt -N http://localhost:3000/api/attendance/stream
 ```
 
-### 4. Seed Data
+### 5. Seed Data
 
-`database/seed.sql` berisi **32 siswa kelas XI RPL 5** (NIS `25019203`–`242510420`, nama sesuai daftar kelas). Tabel `cards` **tidak** di-seed — kartu RFID didaftarkan satu per satu lewat halaman `/register` atau endpoint `POST /api/cards`.
+`database/seed.sql` berisi siswa contoh (32 siswa kelas XI RPL 5). Tabel `cards` **tidak** di-seed — kartu RFID didaftarkan lewat halaman `/register` atau `POST /api/cards`. Akun pengguna dibuat via `npm run seed:users`.
 
 > **Catatan:** `test-curl.sh` memakai UID tetap (mis. `A1B2C3D4E5F6`) yang akan tersimpan sebagai data asli di tabel `cards`. Hapus baris tersebut jika tidak diinginkan di data produksi.
 
 ---
 
+## Scripts
+
+| Perintah | Keterangan |
+|----------|------------|
+| `npm run dev` | Jalankan dev server dengan hot-reload (tsx watch) |
+| `npm run build` | Compile TypeScript ke `dist/` |
+| `npm start` | Jalankan production (`node dist/index.js`) |
+| `npm run db:generate` | Generate migrasi Drizzle |
+| `npm run db:migrate` | Jalankan migrasi |
+| `npm run db:push` | Sinkronkan schema ke database |
+| `npm run seed:users` | Seed akun admin + wali kelas (`--reset-password <username>` untuk reset) |
+| `npm run stress` | Stress test absensi (lihat `scripts/stress-test.mjs --help`) |
+
+---
+
 ## Alur Kerja Sistem
+
+### Alur Login
+
+```
+1. User membuka /login, memasukkan username & password
+2. Server verifikasi (scrypt), buat token sesi (HMAC), set cookie sid (12 jam)
+3. Setiap request berikutnya divalidasi cookie (requireAuth)
+4. Peran ditentukan dari class: NULL = admin, lainnya = wali kelas
+5. Wali kelas di-scope ke kelasnya (API + halaman + SSE)
+```
 
 ### Alur Absensi (Tap RFID)
 
 ```
 1. Kartu RFID ditempelkan ke reader
 2. Reader mengirim UID ke server via POST /api/attendance
-3. Rate limit dicek (12/menit per UID, 600/menit per IP)
+3. Rate limit dicek (12/menit per UID, 3000/menit per IP)
 4. Server validasi format UID (Zod)
 5. Server cari kartu aktif dengan UID tersebut (JOIN cards + students)
    ├── Jika tidak ditemukan → 404 "Kartu tidak terdaftar"
    └── Jika ditemukan:
+       ├── Wali kelas? Pastikan kartu milik kelasnya → 403 jika bukan
        ├── Cek apakah sudah absen hari ini (UNIQUE constraint)
        │   ├── Jika sudah → 409 "Sudah absen hari ini" + SSE event attendance:duplicate
        │   └── Jika belum:
@@ -824,7 +1179,7 @@ curl -N http://localhost:3000/api/attendance/stream
        │       ├── Insert ke database
        │       │   ├── Jika ER_DUP_ENTRY (race condition) → handle graciously
        │       │   └── Jika sukses:
-       │       │       ├── Broadcast via SSE ke semua client
+       │       │       ├── Broadcast via SSE ke client kelas terkait
        │       │       └── Response 200 ke reader
        │       └── (Error lain → throw, tangani di errorHandler)
 ```
@@ -833,9 +1188,9 @@ curl -N http://localhost:3000/api/attendance/stream
 
 ```
 1. Client browser connect ke GET /api/attendance/stream
-2. Server registrasi client, kirim heartbeat (komentar) tiap 30 detik
-3. Ketika ada absensi baru, server broadcast event ke semua client
-4. Client JS menerima event, update UI (toast + animasi)
+2. Server registrasi client (termasuk scope kelas wali), kirim heartbeat tiap 30 detik
+3. Ketika ada absensi baru, server broadcast event ke client yang sesuai kelasnya
+4. Client JS menerima event, update UI (metric bar + toast + tabel)
 5. Jika koneksi putus, client auto-reconnect tanpa batas dengan backoff
    (1s, 2s, 4s, 8s, ... max 30s)
 ```
@@ -849,7 +1204,7 @@ current_time >  late_threshold → "Terlambat"
 
 - `late_threshold` bisa dikonfigurasi via environment variable `LATE_THRESHOLD` (default: `07:00:00`)
 - Bisa juga diset per-instansi via tabel `settings` key `late_threshold` (lebih prioritas dari env)
-- Nilai dari database di-cache in-memory selama 60 detik untuk mengurangi beban query
+- Nilai dari database di-cache in-memory selama 10 detik untuk mengurangi beban query
 
 ### Waktu (Timezone)
 
@@ -871,7 +1226,10 @@ Semua perhitungan tanggal/jam absensi memakai `Intl.DateTimeFormat` dengan timez
 | `DB_NAME` | `rfid_attendance` | Nama database |
 | `LATE_THRESHOLD` | `07:00:00` | Batas jam keterlambatan (format HH:MM:SS) |
 | `APP_TIMEZONE` | `Asia/Jakarta` | Zona waktu IANA untuk tanggal/jam absensi |
+| `TRUST_PROXY` | `false` | Aktifkan jika di belakang proxy (agar rate limit pakai IP asli) |
+| `SESSION_SECRET` | dev default | Secret HMAC untuk tanda tangan cookie sesi (wajib diganti di production) |
+| `CLASS_DEFAULT_PASSWORD` | `ganti123` | Password default akun wali yang dibuat via admin |
 
-Di mode `production`, variabel wajib (`CORS_ORIGIN`, `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`) harus diisi — aplikasi akan menolak start dengan pesan error yang jelas jika kosong.
+Di mode `production`, variabel wajib (`CORS_ORIGIN`, `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `SESSION_SECRET`) harus diisi — aplikasi akan menolak start dengan pesan error yang jelas jika kosong.
 
 ---
