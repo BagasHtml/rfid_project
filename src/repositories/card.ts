@@ -1,7 +1,7 @@
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { cards, students } from '../db/schema.js';
-import { countRows, getInsertId, clampPagination } from '../db/helpers.js';
+import { countRows, getInsertId, clampPagination, findFirst } from '../db/helpers.js';
 
 export interface ActiveCardRow {
   uid: string;
@@ -36,32 +36,52 @@ const recentColumns = {
   ...activeColumns,
 };
 
+const cardJoinCond = eq(cards.studentId, students.id);
+
 export async function insertCard(uid: string, studentId: number): Promise<number> {
   return getInsertId(db.insert(cards).values({ uid, studentId }));
 }
 
-export async function listRecent(limit: number = 20, offset: number = 0): Promise<{ data: RecentCardRow[]; total: number }> {
+async function countCards(className?: string): Promise<number> {
+  if (!className) return countRows(cards);
+
+  const rows = await db
+    .select({ total: sql<number>`COUNT(*)` })
+    .from(cards)
+    .innerJoin(students, cardJoinCond)
+    .where(and(eq(cards.isActive, true), eq(students.class, className)));
+  return Number(rows[0].total);
+}
+
+export async function listRecent(
+  limit: number = 20,
+  offset: number = 0,
+  className?: string,
+): Promise<{ data: RecentCardRow[]; total: number }> {
   const page = clampPagination(limit, offset, 100);
+  const where = className ? eq(students.class, className) : undefined;
+
   const data = await db
     .select(recentColumns)
     .from(cards)
-    .innerJoin(students, eq(cards.studentId, students.id))
+    .innerJoin(students, cardJoinCond)
+    .where(where)
     .orderBy(desc(cards.id))
     .limit(page.limit)
     .offset(page.offset);
 
-  const total = await countRows(cards);
+  const total = await countCards(className);
 
   return { data, total };
 }
 
 export async function findActiveByUid(uid: string): Promise<ActiveCardRow | null> {
-  const rows = await db
-    .select(activeColumns)
-    .from(cards)
-    .innerJoin(students, eq(cards.studentId, students.id))
-    .where(and(eq(cards.uid, uid), eq(cards.isActive, true), eq(students.isActive, true)))
-    .limit(1);
-
-  return rows[0] ?? null;
+  return findFirst(
+    db
+      .select(activeColumns)
+      .from(cards)
+      .innerJoin(students, cardJoinCond)
+      .where(and(eq(cards.uid, uid), eq(cards.isActive, true), eq(students.isActive, true)))
+      .limit(1),
+  );
 }

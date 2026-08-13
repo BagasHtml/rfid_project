@@ -48,6 +48,16 @@ CREATE TABLE settings (
     updated_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
+CREATE TABLE users (
+    id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    username      VARCHAR(50)  NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    class         VARCHAR(20)  NULL,
+    created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT uq_users_username UNIQUE (username)
+) ENGINE=InnoDB;
+
 CREATE INDEX idx_attendance_date ON attendance(date);
 CREATE INDEX idx_students_active ON students(is_active);
 

@@ -28,6 +28,12 @@ export function errorHandler(
 
   const code = getCode(err);
 
+  if (code === 'POOL_ENQUEUELIMIT') {
+    console.error(
+      `[${errorId}] DB POOL PENUH: antrean koneksi database melebihi batas. Periksa beban server atau latensi database.`
+    );
+  }
+
   if (code && connectionErrors.includes(code)) {
     res.status(503).json({
       success: false,

@@ -32,6 +32,7 @@ export const GetStudentsQuerySchema = z.object({
     .min(0, 'Parameter offset tidak boleh negatif')
     .default(0),
   q: z.string().trim().max(50, 'Pencarian maksimal 50 karakter').optional(),
+  class: z.string().trim().max(20, 'Kelas maksimal 20 karakter').optional(),
 });
 
 export const StudentIdParamSchema = z.object({
@@ -40,7 +41,25 @@ export const StudentIdParamSchema = z.object({
     .positive('ID siswa tidak valid'),
 });
 
+export const ImportStudentsSchema = z.object({
+  lines: z
+    .string({ error: 'Data impor wajib diisi' })
+    .trim()
+    .min(1, 'Data impor wajib diisi')
+    .max(100000, 'Data impor terlalu besar'),
+});
+
+export const GetStudentHistoryQuerySchema = z.object({
+  days: z.coerce.number({ error: 'Parameter days harus berupa angka' })
+    .int('Parameter days harus bilangan bulat')
+    .min(1, 'Parameter days minimal 1')
+    .max(100, 'Parameter days maksimal 100')
+    .default(30),
+});
+
 export type RegisterStudentInput = z.infer<typeof RegisterStudentSchema>;
 export type UpdateStudentInput = z.infer<typeof UpdateStudentSchema>;
 export type GetStudentsQueryInput = z.infer<typeof GetStudentsQuerySchema>;
 export type StudentIdParamInput = z.infer<typeof StudentIdParamSchema>;
+export type ImportStudentsInput = z.infer<typeof ImportStudentsSchema>;
+export type GetStudentHistoryQueryInput = z.infer<typeof GetStudentHistoryQuerySchema>;

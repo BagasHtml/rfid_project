@@ -5,6 +5,7 @@ interface ClientConnection {
   id: string;
   res: Response;
   lastHeartbeat: number;
+  className: string | null;
 }
 
 const clients = new Map<string, ClientConnection>();
@@ -50,7 +51,7 @@ function stopHeartbeatIfEmpty() {
   }
 }
 
-export function registerClient(req: Request, res: Response): void {
+export function registerClient(req: Request, res: Response, className: string | null = null): void {
   if (clients.size >= MAX_CLIENTS) {
     res.status(503).json({ success: false, message: 'Terlalu banyak koneksi' });
     return;
@@ -68,6 +69,7 @@ export function registerClient(req: Request, res: Response): void {
     id,
     res,
     lastHeartbeat: Date.now(),
+    className,
   };
 
   clients.set(id, client);
@@ -86,10 +88,15 @@ export function registerClient(req: Request, res: Response): void {
 export function broadcast(event: string, data: unknown): void {
   const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
   const deadClients: string[] = [];
+  const eventClass = (data as { class?: unknown } | null)?.class;
 
   for (const [id, client] of clients) {
     if (client.res.writableEnded) {
       deadClients.push(id);
+      continue;
+    }
+
+    if (client.className && typeof eventClass === 'string' && eventClass !== client.className) {
       continue;
     }
 

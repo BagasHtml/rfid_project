@@ -20,6 +20,7 @@ export const GetRecentCardsQuerySchema = z.object({
     .int('Parameter offset harus bilangan bulat')
     .min(0, 'Parameter offset tidak boleh negatif')
     .default(0),
+  class: z.string().trim().max(20, 'Kelas maksimal 20 karakter').optional(),
 });
 
 export type GetRecentCardsQueryInput = z.infer<typeof GetRecentCardsQuerySchema>;

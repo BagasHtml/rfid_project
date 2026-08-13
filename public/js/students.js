@@ -63,7 +63,7 @@ async function loadStudents(page = 1) {
     const q = searchInput.value.trim();
     if (q) params.set('q', q);
 
-    const res = await fetch(`/api/students?${params}`);
+    const res = await apiFetch(`/api/students?${params}`);
     const data = await res.json();
 
     if (!data.success) throw new Error('Gagal memuat data siswa');
@@ -75,7 +75,10 @@ async function loadStudents(page = 1) {
     renderStudents(data.data);
     renderPagination();
   } catch (err) {
-    studentBody.innerHTML = '<tr class="empty-row"><td colspan="6">Gagal memuat daftar siswa. Periksa koneksi, lalu muat ulang.</td></tr>';
+    const message = err.message === 'TimeoutError'
+      ? 'Koneksi lambat. Muat ulang halaman.'
+      : 'Gagal memuat daftar siswa. Periksa koneksi, lalu muat ulang.';
+    studentBody.innerHTML = `<tr class="empty-row"><td colspan="6">${message}</td></tr>`;
   }
 }
 
@@ -177,7 +180,7 @@ registerBtn.addEventListener('click', async () => {
   registerBtn.disabled = true;
 
   try {
-    const res = await fetch('/api/students', {
+    const res = await apiFetch('/api/students', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ nis, name, class: className }),
@@ -201,7 +204,7 @@ registerBtn.addEventListener('click', async () => {
       showToast('error', 'Gagal mendaftar', statusMessage(res.status, data));
     }
   } catch (err) {
-    showToast('error', 'Gagal terhubung', 'Server tidak merespons. Pastikan server menyala dan jaringan terhubung.');
+    showToast('error', 'Gagal terhubung', err.message === 'TimeoutError' ? 'Koneksi lambat. Coba lagi.' : 'Server tidak merespons. Pastikan server menyala dan jaringan terhubung.');
   } finally {
     registerBtn.disabled = false;
   }
@@ -261,7 +264,7 @@ editSaveBtn.addEventListener('click', async () => {
   editSaveBtn.disabled = true;
 
   try {
-    const res = await fetch(`/api/students/${id}`, {
+    const res = await apiFetch(`/api/students/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ nis, name, class: className }),
@@ -282,7 +285,7 @@ editSaveBtn.addEventListener('click', async () => {
       showToast('error', 'Gagal memperbarui', statusMessage(res.status, data));
     }
   } catch (err) {
-    showToast('error', 'Gagal terhubung', 'Server tidak merespons. Pastikan server menyala dan jaringan terhubung.');
+    showToast('error', 'Gagal terhubung', err.message === 'TimeoutError' ? 'Koneksi lambat. Coba lagi.' : 'Server tidak merespons. Pastikan server menyala dan jaringan terhubung.');
   } finally {
     editSaveBtn.disabled = false;
   }
@@ -295,7 +298,7 @@ async function deleteStudent(id) {
   if (!confirm(`Hapus siswa "${student.name}"?`)) return;
 
   try {
-    const res = await fetch(`/api/students/${id}`, { method: 'DELETE' });
+    const res = await apiFetch(`/api/students/${id}`, { method: 'DELETE' });
 
     let data = {};
     try {
@@ -315,7 +318,7 @@ async function deleteStudent(id) {
       showToast('error', 'Gagal menghapus', statusMessage(res.status, data));
     }
   } catch (err) {
-    showToast('error', 'Gagal terhubung', 'Server tidak merespons. Pastikan server menyala dan jaringan terhubung.');
+    showToast('error', 'Gagal terhubung', err.message === 'TimeoutError' ? 'Koneksi lambat. Coba lagi.' : 'Server tidak merespons. Pastikan server menyala dan jaringan terhubung.');
   }
 }
 

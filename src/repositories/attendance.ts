@@ -1,8 +1,9 @@
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, sql, type SQL } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { attendance, students } from '../db/schema.js';
-import { countRows, getInsertId, clampPagination } from '../db/helpers.js';
+import { countRows, getInsertId, clampPagination, findFirst } from '../db/helpers.js';
 import type { AttendanceStatus } from '../types/attendance.js';
+import { buildSearchWhere } from './student.js';
 
 export interface AttendanceRow {
   id: number;
@@ -34,13 +35,13 @@ const withStudentColumns = {
 };
 
 export async function findTodayAttendance(studentId: number, date: string): Promise<AttendanceRow | null> {
-  const rows = await db
-    .select(attendanceColumns)
-    .from(attendance)
-    .where(and(eq(attendance.studentId, studentId), eq(attendance.date, date)))
-    .limit(1);
-
-  return rows[0] ?? null;
+  return findFirst(
+    db
+      .select(attendanceColumns)
+      .from(attendance)
+      .where(and(eq(attendance.studentId, studentId), eq(attendance.date, date)))
+      .limit(1),
+  );
 }
 
 export async function insertAttendance(
@@ -52,24 +53,105 @@ export async function insertAttendance(
   return getInsertId(db.insert(attendance).values({ studentId, date, time, status }));
 }
 
-export async function getTodayStats(date: string): Promise<{ onTime: number; late: number }> {
-  const onTime = await countRows(attendance, and(eq(attendance.date, date), eq(attendance.status, 'Tepat Waktu')));
-  const late = await countRows(attendance, and(eq(attendance.date, date), eq(attendance.status, 'Terlambat')));
+const studentJoinCond = eq(attendance.studentId, students.id);
+
+function todayWhere(date: string, className?: string): SQL {
+  if (!className) return eq(attendance.date, date);
+  return and(eq(attendance.date, date), eq(students.class, className))!;
+}
+
+async function countToday(date: string, className: string | undefined, extra?: SQL): Promise<number> {
+  const base = db.select({ total: sql<number>`COUNT(*)` }).from(attendance);
+  const query = className ? base.innerJoin(students, studentJoinCond) : base;
+  const where = extra ? and(todayWhere(date, className), extra) : todayWhere(date, className);
+  const rows = await query.where(where);
+  return Number(rows[0].total);
+}
+
+export async function getTodayStats(date: string, className?: string): Promise<{ onTime: number; late: number }> {
+  const [onTime, late] = await Promise.all([
+    countToday(date, className, eq(attendance.status, 'Tepat Waktu')),
+    countToday(date, className, eq(attendance.status, 'Terlambat')),
+  ]);
   return { onTime, late };
 }
 
-export async function getTodayList(date: string, limit: number = 100, offset: number = 0): Promise<{ data: AttendanceWithStudentRow[]; total: number }> {
+export async function getTodayList(
+  date: string,
+  limit: number = 100,
+  offset: number = 0,
+  className?: string,
+): Promise<{ data: AttendanceWithStudentRow[]; total: number }> {
   const page = clampPagination(limit, offset, 200);
+  const where = todayWhere(date, className);
+
   const data = await db
     .select(withStudentColumns)
     .from(attendance)
-    .innerJoin(students, eq(attendance.studentId, students.id))
-    .where(eq(attendance.date, date))
+    .innerJoin(students, studentJoinCond)
+    .where(where)
     .orderBy(desc(attendance.time))
     .limit(page.limit)
     .offset(page.offset);
 
-  const total = await countRows(attendance, eq(attendance.date, date));
+  const total = await countToday(date, className);
+
+  return { data, total };
+}
+
+export async function getStudentHistory(studentId: number, limit: number = 30): Promise<AttendanceRow[]> {
+  return db
+    .select(attendanceColumns)
+    .from(attendance)
+    .where(eq(attendance.studentId, studentId))
+    .orderBy(desc(attendance.date), desc(attendance.time))
+    .limit(Math.min(Math.max(limit, 1), 100));
+}
+
+export interface StudentStatusRow {
+  id: number;
+  nis: string;
+  name: string;
+  class: string;
+  time: string | null;
+  status: string | null;
+}
+
+const studentStatusColumns = {
+  id: students.id,
+  nis: students.nis,
+  name: students.name,
+  class: students.class,
+  time: attendance.time,
+  status: attendance.status,
+};
+
+export async function getStudentsStatusList(
+  date: string,
+  limit: number = 20,
+  offset: number = 0,
+  className?: string,
+  search?: string,
+): Promise<{ data: StudentStatusRow[]; total: number }> {
+  const page = clampPagination(limit, offset, 200);
+
+  const conditions: SQL[] = [eq(students.isActive, true)];
+  if (className) conditions.push(eq(students.class, className));
+  if (search) conditions.push(buildSearchWhere(search));
+  const where = and(...conditions);
+
+  const dateCond = and(studentJoinCond, eq(attendance.date, date));
+
+  const data = await db
+    .select(studentStatusColumns)
+    .from(students)
+    .leftJoin(attendance, dateCond)
+    .where(where)
+    .orderBy(sql`${attendance.id} IS NULL DESC, ${students.name} ASC`)
+    .limit(page.limit)
+    .offset(page.offset);
+
+  const total = await countRows(students, where);
 
   return { data, total };
 }

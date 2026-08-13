@@ -1,13 +1,16 @@
-document.getElementById('total-count').textContent = '0 hadir';
-
 const API_BASE = '';
 let eventSource = null;
 let reconnectAttempts = 0;
 
 const PER_PAGE = 10;
-let currentPage = 1; 
+let currentPage = 1;
 let totalRows = 0;
 let totalStudents = 0;
+
+const role = document.body.dataset.role || 'admin';
+const PAGE_CLASS = document.body.dataset.className || null;
+
+const classSelect = document.getElementById('class-select');
 
 const metricEls = {
   total: document.getElementById('metric-total'),
@@ -15,6 +18,19 @@ const metricEls = {
   late: document.getElementById('metric-late'),
   absent: document.getElementById('metric-absent'),
 };
+const metricTotalLabel = document.getElementById('metric-total-label');
+
+function selectedClass() {
+  if (PAGE_CLASS) return PAGE_CLASS;
+  if (role === 'admin' && classSelect) return classSelect.value || null;
+  return null;
+}
+
+function updateMetricLabel() {
+  if (!metricTotalLabel) return;
+  const cls = selectedClass();
+  metricTotalLabel.textContent = cls ? `Total Siswa (${cls})` : 'Total Siswa';
+}
 
 function updateMetrics(stats) {
   if (!stats) return;
@@ -25,11 +41,37 @@ function updateMetrics(stats) {
   if (metricEls.absent) metricEls.absent.textContent = stats.absent;
 }
 
+async function loadClasses() {
+  if (!classSelect || role !== 'admin') return;
+
+  try {
+    const res = await apiFetch('/api/students/classes');
+    const data = await res.json();
+
+    if (data.success && Array.isArray(data.data)) {
+      classSelect.innerHTML = '<option value="">Semua Kelas</option>' +
+        data.data.map(cls => `<option value="${escapeHtml(cls)}">${escapeHtml(cls)}</option>`).join('');
+    }
+  } catch (err) {
+    /* dropdown kelas gagal dimuat; biarkan mode "Semua Kelas" */
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   setCurrentDate();
-  loadAttendance();
+  updateMetricLabel();
+  loadClasses();
+  loadAttendance(1);
   connectSSE();
 });
+
+if (classSelect) {
+  classSelect.addEventListener('change', () => {
+    updateMetricLabel();
+    loadAttendance(1);
+    if (typeof onClassChangeHook === 'function') onClassChangeHook();
+  });
+}
 
 function setCurrentDate() {
   const now = new Date();
@@ -39,8 +81,14 @@ function setCurrentDate() {
 
 async function loadAttendance(page = 1) {
   try {
-    const offset = (page - 1) * PER_PAGE;
-    const res = await fetch(`${API_BASE}/api/attendance/today?limit=${PER_PAGE}&offset=${offset}`);
+    const cls = selectedClass();
+    const params = new URLSearchParams({
+      limit: String(PER_PAGE),
+      offset: String((page - 1) * PER_PAGE),
+    });
+    if (cls) params.set('class', cls);
+
+    const res = await apiFetch(`${API_BASE}/api/attendance/today?${params}`);
     const data = await res.json();
 
     if (data.success) {
@@ -50,9 +98,11 @@ async function loadAttendance(page = 1) {
       updateMetrics(data.stats);
       renderTable(data.data);
       renderPagination();
+    } else {
+      showFlash('error', data.message || 'Gagal memuat data');
     }
   } catch (err) {
-    console.error('Gagal memuat data:', err);
+    showFlash('error', err.message === 'TimeoutError' ? 'Koneksi lambat, muat ulang halaman' : 'Gagal memuat data');
   }
 }
 
@@ -81,7 +131,9 @@ function renderTable(rows) {
     return;
   }
   const startIndex = (currentPage - 1) * PER_PAGE;
-  tbody.innerHTML = rows.map((row, i) => `<tr>${buildRowHTML(row, startIndex + i + 1)}</tr>`).join('');
+  tbody.innerHTML = rows.map((row, i) =>
+    `<tr data-student-id="${row.student_id}" data-student-name="${escapeHtml(row.student_name)}" data-student-nis="${escapeHtml(row.student_nis)}" data-student-class="${escapeHtml(row.student_class)}">${buildRowHTML(row, startIndex + i + 1)}</tr>`
+  ).join('');
 }
 
 function renderPagination() {
@@ -168,6 +220,7 @@ function handleNewAttendance(data) {
   showFlash('success', `${data.name} - ${data.status}`);
   showToast('success', data.name, `${data.class} | ${data.time} | ${data.status}`);
   prependAttendance(data);
+  if (typeof onNewAttendanceHook === 'function') onNewAttendanceHook(data);
 }
 
 let refreshTimer = null;
@@ -177,6 +230,9 @@ function refreshAttendance() {
 }
 
 function prependAttendance(data) {
+  const cls = selectedClass();
+  if (cls && data.class && data.class !== cls) return;
+
   totalRows += 1;
   document.getElementById('total-count').textContent = `${totalRows} hadir`;
   if (metricEls.hadir) metricEls.hadir.textContent = totalRows;
@@ -195,6 +251,10 @@ function prependAttendance(data) {
   if (emptyRow) tbody.innerHTML = '';
 
   const tr = document.createElement('tr');
+  tr.dataset.studentId = data.student_id || '';
+  tr.dataset.studentName = data.name || '';
+  tr.dataset.studentNis = data.nis || '';
+  tr.dataset.studentClass = data.class || '';
   tr.innerHTML = buildRowHTML({
     student_nis: data.nis,
     student_name: data.name,
@@ -282,7 +342,7 @@ rfidInput.addEventListener('blur', () => {
 rfidInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
     e.preventDefault();
-    if (uidBuffer.length >= 8) {
+    if (uidBuffer.length >= 8 && !uidEntered) {
       submitUID(uidBuffer);
     }
     uidBuffer = '';
@@ -301,7 +361,7 @@ document.addEventListener('DOMContentLoaded', focusRfidInput);
 async function submitUID(uid) {
   uidEntered = true;
   try {
-    const res = await fetch(`${API_BASE}/api/attendance`, {
+    const res = await apiFetch(`${API_BASE}/api/attendance`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ uid }),
@@ -317,11 +377,14 @@ async function submitUID(uid) {
       refreshAttendance();
     } else {
       showFlash('error', data.message || 'Gagal');
+      if (res.status === 403) {
+        showToast('error', 'Akses ditolak', data.message || 'Kartu bukan milik kelas ini');
+      }
     }
   } catch (err) {
-    showFlash('error', 'Gagal terhubung ke server');
+    showFlash('error', err.message === 'TimeoutError' ? 'Koneksi lambat, coba lagi' : 'Gagal terhubung ke server');
   } finally {
-    setTimeout(() => { uidEntered = false; }, 2000);
+    uidEntered = false;
     setTimeout(focusRfidInput, 50);
   }
 }
@@ -329,7 +392,11 @@ async function submitUID(uid) {
 const origHandleNew = handleNewAttendance;
 const origHandleDup = handleDuplicateAttendance;
 handleNewAttendance = function(data) {
-  if (uidEntered) { refreshAttendance(); return; }
+  if (uidEntered) {
+    refreshAttendance();
+    if (typeof onNewAttendanceHook === 'function') onNewAttendanceHook(data);
+    return;
+  }
   origHandleNew(data);
 };
 handleDuplicateAttendance = function(data) {

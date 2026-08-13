@@ -7,7 +7,11 @@ export async function writeOrDuplicate<T>(
   try {
     await write();
   } catch (err) {
-    if (isDuplicateEntryError(err)) return await onDuplicate();
+    if (isDuplicateEntryError(err)) {
+      const result = await onDuplicate();
+      if (result === null) throw err;
+      return result;
+    }
     throw err;
   }
   return null;

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Masuk - Sistem Absensi RFID</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css?v=6">
+</head>
+<body class="login-body">
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-brand">
+        <img src="/images/logo.webp" alt="SMK Taruna Bangsa" class="login-logo">
+      </div>
+      <h1 class="login-title">Masuk</h1>
+      <p class="login-subtitle">Sistem Absensi RFID &middot; SMK Taruna Bangsa</p>
+
+      <form id="login-form" autocomplete="off">
+        <div class="form-field">
+          <label for="login-username">Username</label>
+          <input type="text" id="login-username" class="form-input" autocomplete="username" maxlength="50" placeholder="contoh: admin">
+        </div>
+        <div class="form-field">
+          <label for="login-password">Password</label>
+          <input type="password" id="login-password" class="form-input" autocomplete="current-password" maxlength="100" placeholder="••••••••">
+        </div>
+        <button type="submit" id="login-btn" class="btn-primary login-btn">Masuk</button>
+        <div id="login-error" class="login-error hidden"></div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/login.js?v=4"></script>
+</body>
+</html>

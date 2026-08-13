@@ -9,6 +9,8 @@ import { requestLogger } from './middleware/requestLogger.js';
 import attendanceRoutes from './routes/attendance.js';
 import cardsRoutes from './routes/cards.js';
 import studentsRoutes from './routes/students.js';
+import authRoutes from './routes/auth.js';
+import adminRoutes from './routes/admin.js';
 import pagesRoutes from './routes/pages.js';
 import helmet from 'helmet';
 
@@ -39,7 +41,7 @@ app.use(express.static(path.join(projectRoot, 'public')));
 
 app.use(requestLogger);
 
-app.use(express.json({ limit: '1kb' }));
+app.use(express.json({ limit: '100kb' }));
 
 app.get('/api/health', async (_req, res) => {
   try {
@@ -54,6 +56,8 @@ app.get('/api/health', async (_req, res) => {
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/cards', cardsRoutes);
 app.use('/api/students', studentsRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.use('/api', (_req, res) => {
   res.status(404).json({ success: false, message: 'Endpoint tidak ditemukan' });

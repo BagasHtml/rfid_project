@@ -8,3 +8,7 @@ export function buildStudentInfo(card: CardWithStudent): StudentInfo {
     nis: card.student_nis,
   };
 }
+
+export function normalizeClassName(value: string): string {
+  return value.trim().toUpperCase();
+}

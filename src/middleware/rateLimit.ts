@@ -21,7 +21,7 @@ export const attendanceUidLimiter = rateLimit({
 
 export const attendanceIpLimiter = rateLimit({
   windowMs: WINDOW_MS,
-  limit: 600,
+  limit: 3000,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   handler: tooManyRequestsHandler,
@@ -45,8 +45,31 @@ export const readIpLimiter = rateLimit({
 
 export const sseIpLimiter = rateLimit({
   windowMs: WINDOW_MS,
+  limit: 100,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  handler: tooManyRequestsHandler,
+});
+
+export const loginIpLimiter = rateLimit({
+  windowMs: WINDOW_MS,
   limit: 20,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
+  handler: tooManyRequestsHandler,
+});
+
+export const loginUserLimiter = rateLimit({
+  windowMs: WINDOW_MS,
+  limit: 5,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const username = req.body?.username;
+    if (typeof username === 'string' && username.trim()) {
+      return `login:${username.trim().toLowerCase()}`;
+    }
+    return `login:ip:${ipKeyGenerator(req.ip || '')}`;
+  },
   handler: tooManyRequestsHandler,
 });

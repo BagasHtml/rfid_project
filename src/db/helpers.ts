@@ -20,6 +20,11 @@ export async function countRows(table: AnyMySqlTable, where?: SQL): Promise<numb
   return Number(rows[0].total);
 }
 
+export async function findFirst<T>(promise: PromiseLike<T[]>, fallback: T | null = null): Promise<T | null> {
+  const rows = await promise;
+  return rows[0] ?? fallback;
+}
+
 export function clampPagination(limit: number, offset: number, maxLimit: number = 200): { limit: number; offset: number } {
   return {
     limit: Math.min(Math.max(Math.floor(limit), 1), maxLimit),

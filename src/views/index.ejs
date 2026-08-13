@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sistem Absensi RFID - SMK Taruna Bangsa</title>
+  <title>Absensi - Sistem Absensi RFID</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/style.css?v=3">
+  <link rel="stylesheet" href="/css/style.css?v=7">
 </head>
-<body>
+<body data-role="admin">
   <%- include('partials/header') %>
 
   <section class="metric-bar">
@@ -18,7 +18,7 @@
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z"/></svg>
       </span>
       <div class="metric-info">
-        <span class="metric-label">Total Siswa</span>
+        <span class="metric-label" id="metric-total-label">Total Siswa</span>
         <strong class="metric-value" id="metric-total">0</strong>
       </div>
     </div>
@@ -69,19 +69,129 @@
   <section class="attendance-section">
     <div class="section-header">
       <h2>Daftar Absensi Hari Ini</h2>
-      <div class="stats">
+      <div class="section-tools">
+        <select id="class-select" class="class-select" aria-label="Pilih kelas">
+          <option value="">Semua Kelas</option>
+        </select>
         <span id="total-count" class="stat-badge">0 hadir</span>
       </div>
     </div>
+    <div class="table-hint">Klik baris siswa untuk melihat riwayat absensinya</div>
 
     <%- include('partials/table') %>
 
     <div class="pagination" id="pagination"></div>
   </section>
 
+  <% if (user.role === 'admin') { %>
+  <section class="attendance-section monitor-section">
+    <div class="section-header">
+      <h2>Pemantauan Kehadiran Siswa</h2>
+      <div class="section-tools">
+        <input type="search" id="monitor-search" class="class-select monitor-search" placeholder="Cari NIS / Nama / Kelas..." autocomplete="off">
+      </div>
+    </div>
+    <div class="table-hint">Status seluruh siswa hari ini. Klik baris untuk melihat riwayat absensi.</div>
+    <div class="table-wrapper">
+      <table class="attendance-table">
+        <thead>
+          <tr>
+            <th>No</th>
+            <th>NIS</th>
+            <th>Nama</th>
+            <th>Kelas</th>
+            <th>Waktu</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="monitor-body">
+          <tr class="empty-row"><td colspan="6">Memuat data siswa...</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="pagination" id="monitor-pagination"></div>
+  </section>
+
+  <section class="admin-grid">
+    <section class="attendance-section admin-card">
+      <div class="section-header">
+        <h2>Kelola Kelas &amp; Akun Wali</h2>
+        <span class="stat-badge" id="admin-class-count">0 kelas</span>
+      </div>
+      <div class="admin-add-row">
+        <input type="text" id="admin-class-input" class="form-input" placeholder="Nama kelas baru, mis. XII RPL 6" maxlength="20" autocomplete="off">
+        <button id="admin-class-add-btn" class="btn-primary btn-sm" type="button">+ Tambah Kelas</button>
+      </div>
+      <div class="table-wrapper">
+        <table class="attendance-table">
+          <thead>
+            <tr>
+              <th>Kelas</th>
+              <th>Jumlah Siswa</th>
+              <th>Akun Wali</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="admin-class-body">
+            <tr class="empty-row"><td colspan="4">Memuat data kelas...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="attendance-section admin-card">
+      <div class="section-header">
+        <h2>Import Siswa Massal</h2>
+      </div>
+      <div class="import-body">
+        <p class="import-hint">Satu siswa per baris, format: <code>NIS;Nama;Kelas</code>. NIS yang sudah terdaftar otomatis dilewati.</p>
+        <textarea id="import-lines" class="form-input import-textarea" placeholder="2024001;Budi Santoso;XII RPL 1&#10;2024002;Siti Aminah;XII RPL 1" spellcheck="false"></textarea>
+        <div class="import-footer">
+          <button id="import-btn" class="btn-primary btn-sm" type="button">Import Sekarang</button>
+          <span id="import-result" class="import-result"></span>
+        </div>
+      </div>
+    </section>
+  </section>
+
+  <div class="modal-overlay hidden" id="history-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="history-name">Riwayat Siswa</h3>
+        <button type="button" class="modal-close" id="history-close-btn" aria-label="Tutup">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="history-meta" id="history-meta"></p>
+        <div class="history-summary" id="history-summary"></div>
+        <div class="table-wrapper">
+          <table class="attendance-table">
+            <thead>
+              <tr>
+                <th>Tanggal</th>
+                <th>Jam</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="history-list">
+              <tr class="empty-row"><td colspan="3">Memuat riwayat...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" id="history-cancel-btn">Tutup</button>
+      </div>
+    </div>
+  </div>
+  <% } %>
+
   <%- include('partials/footer') %>
   <%- include('partials/status') %>
 
-  <script src="/js/app.js?v=3"></script>
+  <script src="/js/http.js?v=4"></script>
+  <script src="/js/app.js?v=6"></script>
+  <% if (user.role === 'admin') { %>
+  <script src="/js/admin.js?v=2"></script>
+  <% } %>
 </body>
 </html>

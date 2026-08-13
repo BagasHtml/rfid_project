@@ -69,7 +69,7 @@ function escapeHtml(text) {
 async function loadRecent(page = 1) {
   try {
     const offset = (page - 1) * RECENT_PER_PAGE;
-    const res = await fetch(`/api/cards?limit=${RECENT_PER_PAGE}&offset=${offset}`);
+    const res = await apiFetch(`/api/cards?limit=${RECENT_PER_PAGE}&offset=${offset}`);
     const data = await res.json();
 
     if (!data.success) throw new Error('Gagal memuat kartu terdaftar');
@@ -80,7 +80,7 @@ async function loadRecent(page = 1) {
     renderRecentPagination();
   } catch (err) {
     const tbody = document.getElementById('recent-body');
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Gagal memuat daftar kartu. Periksa koneksi, lalu muat ulang.</td></tr>';
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="5">${err.message === 'TimeoutError' ? 'Koneksi lambat. Muat ulang halaman.' : 'Gagal memuat daftar kartu. Periksa koneksi, lalu muat ulang.'}</td></tr>`;
   }
 }
 
@@ -151,7 +151,7 @@ document.getElementById('recent-pagination').addEventListener('click', (e) => {
 
 async function loadStudents() {
   try {
-    const res = await fetch('/api/students/active');
+    const res = await apiFetch('/api/students/active');
     const data = await res.json();
 
     if (!data.success) throw new Error('Gagal memuat data siswa');
@@ -167,7 +167,7 @@ async function loadStudents() {
 
     setRegisterEnabled();
   } catch (err) {
-    showToast('error', 'Gagal memuat data siswa', 'Periksa koneksi, lalu muat ulang halaman.');
+    showToast('error', 'Gagal memuat data siswa', err.message === 'TimeoutError' ? 'Koneksi lambat. Muat ulang halaman.' : 'Periksa koneksi, lalu muat ulang halaman.');
   }
 }
 
@@ -192,7 +192,7 @@ registerBtn.addEventListener('click', async () => {
   registerBtn.disabled = true;
 
   try {
-    const res = await fetch('/api/cards', {
+    const res = await apiFetch('/api/cards', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ uid: scannedUid, student_id: Number(studentSelect.value) }),
@@ -220,8 +220,9 @@ registerBtn.addEventListener('click', async () => {
       showToast(type, 'Gagal mendaftar', message);
     }
   } catch (err) {
-    showResult('error', 'Gagal terhubung ke server. Periksa koneksi jaringan.');
-    showToast('error', 'Gagal terhubung', 'Server tidak merespons. Pastikan server menyala dan jaringan terhubung.');
+    const message = err.message === 'TimeoutError' ? 'Koneksi lambat. Coba lagi.' : 'Gagal terhubung ke server. Periksa koneksi jaringan.';
+    showResult('error', message);
+    showToast('error', 'Gagal terhubung', message);
   } finally {
     setRegisterEnabled();
     setTimeout(focusRfidInput, 50);

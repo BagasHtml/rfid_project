@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Absensi <%= className %> - Sistem Absensi RFID</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css?v=6">
+</head>
+<body data-role="class" data-class-name="<%= className %>">
+  <%- include('partials/header') %>
+
+  <section class="metric-bar">
+    <div class="metric-item">
+      <span class="metric-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z"/></svg>
+      </span>
+      <div class="metric-info">
+        <span class="metric-label" id="metric-total-label">Total Siswa</span>
+        <strong class="metric-value" id="metric-total">0</strong>
+      </div>
+    </div>
+    <div class="metric-item">
+      <span class="metric-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+      </span>
+      <div class="metric-info">
+        <span class="metric-label">Hadir</span>
+        <strong class="metric-value" id="metric-hadir">0</strong>
+      </div>
+    </div>
+    <div class="metric-item">
+      <span class="metric-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+      </span>
+      <div class="metric-info">
+        <span class="metric-label">Terlambat</span>
+        <strong class="metric-value" id="metric-late">0</strong>
+      </div>
+    </div>
+    <div class="metric-item">
+      <span class="metric-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+      </span>
+      <div class="metric-info">
+        <span class="metric-label">Belum Absen</span>
+        <strong class="metric-value" id="metric-absent">0</strong>
+      </div>
+    </div>
+  </section>
+
+  <section class="scan-section">
+    <div class="scan-card">
+      <div class="scan-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z" />
+        </svg>
+      </div>
+      <div class="scan-body">
+        <p class="scan-text">Tempelkan kartu RFID untuk absen</p>
+        <div id="scan-result" class="scan-result hidden"></div>
+      </div>
+    </div>
+    <input type="text" id="rfid-input" autocomplete="off" style="position:fixed;left:-9999px;width:1px;height:1px;opacity:0" aria-hidden="true">
+  </section>
+
+  <section class="attendance-section">
+    <div class="section-header">
+      <h2>Absensi Hari Ini <span class="class-badge"><%= className %></span></h2>
+      <span id="total-count" class="stat-badge">0 hadir</span>
+    </div>
+
+    <%- include('partials/table') %>
+
+    <div class="pagination" id="pagination"></div>
+  </section>
+
+  <%- include('partials/footer') %>
+  <%- include('partials/status') %>
+
+  <script src="/js/http.js?v=4"></script>
+  <script src="/js/app.js?v=5"></script>
+</body>
+</html>

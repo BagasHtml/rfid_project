@@ -1,5 +1,5 @@
 import type { AttendanceRecord, AttendanceStatus, AttendanceWithStudent } from '../types/attendance.js';
-import type { AttendanceWithStudentRow, AttendanceRow } from '../repositories/attendance.js';
+import type { AttendanceWithStudentRow, AttendanceRow, StudentStatusRow } from '../repositories/attendance.js';
 
 function toDateStr(d: Date | string): string {
   if (typeof d === 'string') return d.slice(0, 10);
@@ -30,5 +30,25 @@ export function toAttendanceWithStudent(row: AttendanceWithStudentRow): Attendan
     student_name: row.studentName,
     student_class: row.studentClass,
     student_nis: row.studentNis,
+  };
+}
+
+export interface StudentStatusRecord {
+  id: number;
+  nis: string;
+  name: string;
+  class: string;
+  time: string | null;
+  status: string;
+}
+
+export function toStudentStatus(row: StudentStatusRow): StudentStatusRecord {
+  return {
+    id: row.id,
+    nis: row.nis,
+    name: row.name,
+    class: row.class,
+    time: row.time,
+    status: row.status ?? 'Belum Absen',
   };
 }
