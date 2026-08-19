@@ -7,6 +7,7 @@ Sistem absensi berbasis kartu RFID untuk **SMK Taruna Bangsa** (multi-kelas). Te
 - [Fitur Utama](#fitur-utama)
 - [Tangkapan Layar](#tangkapan-layar)
 - [Desain UI/UX](#desain-uiux)
+  - [Dark Mode](#dark-mode)
 - [Autentikasi & Peran](#autentikasi--peran)
 - [Arsitektur](#arsitektur)
 - [Tech Stack](#tech-stack)
@@ -18,6 +19,7 @@ Sistem absensi berbasis kartu RFID untuk **SMK Taruna Bangsa** (multi-kelas). Te
 - [Cara Menggunakan](#cara-menggunakan)
 - [Scripts](#scripts)
 - [Alur Kerja Sistem](#alur-kerja-sistem)
+  - [Alur Status Manual (Admin)](#alur-status-manual-admin)
 - [Environment Variables](#environment-variables)
 
 ---
@@ -27,11 +29,12 @@ Sistem absensi berbasis kartu RFID untuk **SMK Taruna Bangsa** (multi-kelas). Te
 - **Login & logout** dengan sesi aman (cookie `sid` bertanda HMAC-SHA256, berlaku 12 jam).
 - **Dua peran**: **Admin** (class = NULL) dan **Wali Kelas** (memiliki `class`).
 - **Pembatasan akses per kelas** — wali kelas hanya bisa melihat/input absensi kelasnya sendiri (ditegakkan di API dan SSE real-time).
-- **Pemantauan kehadiran siswa** (admin): status **Belum Absen / Tepat Waktu / Terlambat** per siswa per hari, dengan pencarian & pagination.
+- **Pemantauan kehadiran siswa** (admin): status **Belum Absen / Tepat Waktu / Terlambat / Alpha / Izin / Sakit / Dispen** per siswa per hari, dengan pencarian & pagination.
+- **Manajemen status manual** (admin): ubah status absensi siswa (Alpha, Izin, Sakit, Dispen) dengan keterangan opsional, langsung dari tabel pemantauan.
 - **Manajemen kelas & akun wali** (admin): buat kelas (otomatis membuat akun wali), reset password default, hapus akun wali.
-- **Import siswa massal** (admin): format `NIS;Nama;Kelas`, NIS duplikat otomatis dilewati.
 - **Riwayat absensi per siswa** (modal, klik baris).
 - **Live update** via SSE (event `attendance:new`, `attendance:duplicate`) — di-filter per kelas.
+- **Dark mode toggle** — tema gelap/terang dapat di-switch manual via tombol di topbar, preference tersimpan di `localStorage`.
 - **Pagination** dengan batas maksimal per endpoint (defense-in-depth).
 - **Rate limiting** per UID / per IP / per username login.
 
@@ -49,7 +52,7 @@ Form masuk dengan username & password. Redirect otomatis sesuai peran (admin →
 
 ![Halaman Absensi](docs/screenshots/halaman-absensi.png)
 
-Dashboard admin: sidebar navigasi, metric bar (Total Siswa / Hadir / Terlambat / Belum Absen), kartu scan RFID, tabel absensi hari ini (dengan filter kelas), **pemantauan kehadiran siswa**, kelola kelas & akun wali, serta import siswa massal.
+Dashboard admin: sidebar navigasi, metric bar (Total Siswa / Hadir / Terlambat / Belum Absen), kartu scan RFID, tabel pemantauan kehadiran siswa (dengan filter kelas, pencarian, dan kolom Aksi untuk ubah status manual), serta kelola kelas & akun wali.
 
 ### Halaman Absensi Kelas (`/kelas/:namaKelas`)
 
@@ -73,32 +76,37 @@ Form pendaftaran siswa, tabel siswa (dengan pencarian), edit/hapus, dan riwayat 
 
 ## Desain UI/UX
 
-Dashboard diredesain dengan gaya **Lessa** — ringan, emerald, dan modern. Seluruh warna memakai CSS custom properties di `public/css/style.css`.
+Dashboard diredesain dengan gaya **Lessa** — ringan, emerald, dan modern. Seluruh warna memakai CSS custom properties di `public/css/style.css` dengan support **dark mode** via `data-theme="dark"`.
 
-| Token | Nilai |
-|-------|-------|
-| `--primary` | `#00A37A` (hijau emerald) |
-| `--accent` | `#FF8C32` (oranye) |
-| `--canvas` | `#F4F5F7` (background) |
-| `--text` | `#1A1D1E` / `#8A94A6` (teks & muted) |
-| Radius | 12–24 px |
-| Font | Plus Jakarta Sans (Google Fonts) |
+| Token | Light | Dark |
+|-------|-------|------|
+| `--primary` | `#00A37A` | `#00A37A` |
+| `--accent` | `#FF8C32` | `#FF8C32` |
+| `--canvas` | `#F4F5F7` | `#0F1117` |
+| `--surface` | `#FFFFFF` | `#1A1D23` |
+| `--text` | `#1A1D1E` | `#E4E7EC` |
+| `--text-soft` | `#8A94A6` | `#7C839A` |
+| `--border` | `#EAECEF` | `#2C3038` |
+| Radius | 12–20 px | 12–20 px |
+| Font | Plus Jakarta Sans (Google Fonts) | Plus Jakarta Sans (Google Fonts) |
 
 **Layout:**
 
 ```
-┌──────────────┬────────────────────────────────────┐
-│              │  Topbar: judul + tanggal + pill    │
-│   Sidebar    │  koneksi + user pill + logout      │
-│   (240px)    ├────────────────────────────────────┤
-│   logo       │  Metric bar 4 kolom:               │
-│   Menu       │  [Total] [Hadir] [Terlambat] [Belum]│
-│   (per role) │────────────────────────────────────│
-│  promo card  │  Kartu scan RFID (input UID)       │
-│              ├────────────────────────────────────┤
-│              │  Tabel absensi + (admin) monitor   │
-│              │  + kelola kelas + import siswa     │
-└──────────────┴────────────────────────────────────┘
+┌──────────────┬──────────────────────────────────────┐
+│              │  Topbar: judul + tanggal + [?] +     │
+│   Sidebar    │  pill koneksi + user pill + logout   │
+│   (240px)    ├──────────────────────────────────────┤
+│   logo       │  Metric bar 4 kolom:                 │
+│   Menu       │  [Total] [Hadir] [Terlambat] [Belum] │
+│   (per role) ├──────────────────────────────────────┤
+│  promo card  │  Kartu scan RFID (input UID)         │
+│              ├──────────────────────────────────────┤
+│              │  Pemantauan kehadiran (tabel + aksi)  │
+│              │  Kelola kelas & akun wali             │
+└──────────────┴──────────────────────────────────────┘
+
+Container max-width: 1280px (diperlebar dari 1100px)
 ```
 
 **Fitur UI:**
@@ -106,10 +114,32 @@ Dashboard diredesain dengan gaya **Lessa** — ringan, emerald, dan modern. Selu
 - **Sidebar tetap** (240 px desktop, off-canvas di mobile) menyesuaikan peran: admin melihat `Absensi` / `Daftar Kartu` / `Daftar Siswa`, wali kelas hanya melihat `Absensi Kelas`.
 - **Metric bar** menampilkan 4 angka: **Total Siswa**, **Hadir**, **Terlambat**, **Belum Absen** — ter-update otomatis via SSE setiap ada tap baru.
 - **Connection pill** di topbar (halaman absensi saja) menunjukkan status koneksi real-time (hijau = terhubung, oranye = menghubung, merah = putus).
+- **Theme toggle** di topbar — tombol ikon matahari/bulan untuk switch light ↔ dark mode. Preference tersimpan di `localStorage('theme')`. Flash prevention script di `<head>` mencegah kedip saat load.
 - **User pill** menampilkan peran (Admin / nama kelas) dan username, plus tombol **Keluar**.
 - **Toast notification** muncul saat ada absensi baru (sukses/duplikat/error).
 - **Modal riwayat absensi** — klik baris siswa untuk melihat riwayat 30 hari terakhir.
+- **Kolom Aksi** (admin) — dropdown status + input keterangan + tombol Simpan, untuk mengatur status manual (Alpha/Izin/Sakit/Dispen) atau mengubah status yang sudah ada.
 - **Cache-busting** `?v=...` pada `style.css` dan semua file JS.
+
+### Dark Mode
+
+Dark mode diaktifkan dengan menambahkan `data-theme="dark"` pada element `<html>`. Implementasi:
+
+- **Flash prevention**: Script inline di `<head>` setiap halaman membaca `localStorage('theme')` sebelum CSS load, mencegah kedip (flash of wrong theme).
+- **CSS Variables**: Semua warna menggunakan CSS custom properties. Dark mode meng-override variabel di `[data-theme="dark"]` selector.
+- **Toggle button**: Tombol ikon matahari/bulan di topbar (header.ejs), tersedia untuk semua user yang login.
+- **Persistence**: Preference tersimpan di `localStorage('theme')` (`'dark'` atau `'light'`).
+- **Scope**: Override mencakup sidebar, cards, tables, status badges, modals, forms, scan card states, login page, dan semua komponen UI.
+
+| Komponen | Light | Dark |
+|----------|-------|------|
+| Canvas (bg) | `#F4F5F7` | `#0F1117` |
+| Surface (card) | `#FFFFFF` | `#1A1D23` |
+| Text | `#1A1D1E` | `#E4E7EC` |
+| Border | `#EAECEF` | `#2C3038` |
+| Table header | `#FAFBFC` | `#14171D` |
+| Metric bar | `#00A37A` gradient | `#006B50` gradient |
+| Status badges | Light pastel bg | Low-opacity tint bg |
 
 ---
 
@@ -194,8 +224,8 @@ rfid_project/
 │   └── js/
 │       ├── http.js          # Helper fetch (auth, error handling)
 │       ├── login.js         # Client JS halaman login
-│       ├── app.js           # Client JS absensi (SSE, fetch, UI)
-│       ├── admin.js         # Client JS admin (monitor, kelas, import, riwayat)
+│       ├── app.js           # Client JS absensi (SSE, fetch, UI, theme toggle)
+│       ├── admin.js         # Client JS admin (monitor, kelas, status manual, riwayat)
 │       ├── register.js      # Client JS halaman registrasi kartu
 │       └── students.js      # Client JS halaman manajemen siswa
 ├── scripts/
@@ -210,7 +240,7 @@ rfid_project/
 │   │   ├── helpers.ts       # getInsertId(), getAffectedRows(), countRows(), findFirst(), clampPagination()
 │   │   └── schema.ts        # Definisi tabel (students, cards, attendance, settings, users)
 │   ├── mappers/
-│   │   ├── attendance.ts    # Mapping query → AttendanceRecord / AttendanceWithStudent / StudentStatus
+│   │   ├── attendance.ts    # Mapping query → AttendanceRecord / AttendanceWithStudent / StudentStatus (with attendanceId + keterangan)
 │   │   ├── card.ts          # Mapping query → CardWithStudent / CardRecord
 │   │   └── student.ts       # Mapping query → StudentRecord
 │   ├── middleware/
@@ -221,20 +251,20 @@ rfid_project/
 │   │   ├── requestLogger.ts # Logging request
 │   │   └── validate.ts      # Validasi body (validate) & query (validateQuery)
 │   ├── repositories/
-│   │   ├── attendance.ts    # Query absensi (+ stats, status per siswa, riwayat)
+│   │   ├── attendance.ts    # Query absensi (+ stats, status per siswa, riwayat, update status, insert manual)
 │   │   ├── card.ts          # Query kartu
 │   │   ├── setting.ts       # Query settings (dengan cache in-memory 10 detik)
 │   │   ├── student.ts       # Query siswa (+ search, bulk insert)
 │   │   └── user.ts          # Query akun users (login, akun wali kelas)
 │   ├── routes/
-│   │   ├── attendance.ts    # API absensi + status + SSE
+│   │   ├── attendance.ts    # API absensi + status + SSE + ubah status + manual
 │   │   ├── cards.ts         # API registrasi/daftar kartu
 │   │   ├── students.ts      # API siswa (CRUD, import, riwayat)
 │   │   ├── auth.ts          # API login/logout/ganti password/me
 │   │   ├── admin.ts         # API kelola kelas & akun wali
 │   │   └── pages.ts         # Route halaman web (/, /login, /kelas, /register, /students)
 │   ├── services/
-│   │   ├── attendance.ts    # Logic absensi (+ getTodayList/getStatusList dengan stats)
+│   │   ├── attendance.ts    # Logic absensi (+ getTodayList/getStatusList + updateStatus + setManualStatus)
 │   │   ├── cards.ts         # Logic registrasi kartu
 │   │   ├── students.ts      # Logic siswa (CRUD, import, riwayat)
 │   │   ├── auth.ts          # Logic login/logout/ganti password
@@ -242,7 +272,7 @@ rfid_project/
 │   ├── sse/
 │   │   └── clients.ts       # Manajemen koneksi SSE (heartbeat, filter kelas, broadcast)
 │   ├── types/
-│   │   ├── attendance.ts    # Type AttendanceRecord, AttendanceResult, dst.
+│   │   ├── attendance.ts    # Type AttendanceRecord (+ keterangan), AttendanceResult, AttendanceStatus (6 opsi)
 │   │   ├── card.ts          # Type CardWithStudent, CardRecord
 │   │   ├── student.ts       # Type StudentInfo, StudentRecord
 │   │   ├── user.ts          # Type AuthUser, LoginResult
@@ -255,14 +285,14 @@ rfid_project/
 │   │   ├── http.ts          # sendResult(), ok(), fail()
 │   │   └── insert.ts        # writeOrDuplicate() — insert dengan graceful duplicate
 │   ├── validators/
-│   │   ├── attendance.ts    # Zod schema absensi + query today/status
+│   │   ├── attendance.ts    # Zod schema absensi + query today/status + UpdateStatus + ManualAttendance
 │   │   ├── cards.ts         # Zod schema registrasi kartu
 │   │   ├── students.ts      # Zod schema siswa (CRUD, import, query, history)
 │   │   ├── auth.ts          # Zod schema login / ganti password
 │   │   └── admin.ts         # Zod schema nama kelas
 │   ├── views/
 │   │   ├── login.ejs        # Halaman login
-│   │   ├── index.ejs        # Dashboard admin (absensi + monitor + kelas + import)
+│   │   ├── index.ejs        # Dashboard admin (absensi + pemantauan + kelas)
 │   │   ├── perkelas.ejs     # Dashboard wali kelas
 │   │   ├── register.ejs     # Halaman registrasi kartu
 │   │   ├── students.ejs     # Halaman manajemen siswa
@@ -320,7 +350,8 @@ settings (key-value store)
 | student_id | INT UNSIGNED FK | Foreign key ke students (RESTRICT, CASCADE) |
 | date | DATE | Tanggal absensi |
 | time | TIME | Jam absensi |
-| status | VARCHAR(20) | `Tepat Waktu` / `Terlambat` |
+| status | VARCHAR(20) | `Tepat Waktu` / `Terlambat` / `Alpha` / `Izin` / `Sakit` / `Dispen` |
+| keterangan | VARCHAR(255) NULL | Catatan opsional (misalnya alasan izin/sakit) |
 
 - **UNIQUE constraint** `uq_attendance_student_date` pada `(student_id, date)` untuk mencegah duplikasi (race condition handling)
 - **FK `student_id`** RESTRICT: siswa dengan data kartu/absensi tidak dapat dihapus (blokir `DELETE /students/:id`)
@@ -364,6 +395,11 @@ mysql -u root -p rfid_attendance < database/seed.sql
 # 4. Seed akun login (admin + wali kelas) — password default "ganti123"
 npm run seed:users
 ```
+
+> **Migration manual:** Jika database sudah ada sebelum penambahan kolom `keterangan`, jalankan:
+> ```sql
+> ALTER TABLE attendance ADD COLUMN keterangan VARCHAR(255) NULL AFTER status;
+> ```
 
 ---
 
@@ -494,6 +530,8 @@ Mencatat absensi berdasarkan UID kartu RFID. Wali kelas hanya bisa men-tap kartu
 }
 ```
 
+Status yang mungkin: `Tepat Waktu`, `Terlambat` (otomatis berdasarkan jam tap), atau `Alpha`, `Izin`, `Sakit`, `Dispen` (diatur manual oleh admin).
+
 **Response 409 (Duplikat - sudah absen hari ini):**
 ```json
 {
@@ -603,13 +641,21 @@ Status seluruh siswa (aktif) hari ini: **Belum Absen / Tepat Waktu / Terlambat**
       "name": "AGUNG WIBOWO",
       "class": "XI RPL 5",
       "time": "06:45:00",
-      "status": "Tepat Waktu"
+      "status": "Tepat Waktu",
+      "attendanceId": 1,
+      "keterangan": null
     }
   ],
   "total": 32,
   "stats": { "total_students": 32, "present": 5, "on_time": 4, "late": 1, "absent": 27 }
 }
 ```
+
+Field tambahan:
+| Field | Keterangan |
+|-------|------------|
+| `attendanceId` | ID record absensi (null jika belum absen) |
+| `keterangan` | Catatan opsional (null jika tidak ada) |
 
 ---
 
@@ -645,7 +691,74 @@ Dikirim ketika ada percobaan absensi duplikat.
 
 ---
 
-### 7. Registrasi Kartu (POST)
+### 7. Ubah Status Absensi (PUT, Admin)
+
+```
+PUT /api/attendance/:id/status
+Content-Type: application/json
+
+{
+  "status": "Izin",
+  "keterangan": "Izin keluarga"
+}
+```
+
+Mengubah status absensi siswa yang sudah ada. Hanya admin.
+
+**Rate limit:** 60 permintaan/menit per IP.
+
+**Validasi:**
+- `status`: wajib, salah satu dari `Tepat Waktu`, `Terlambat`, `Alpha`, `Izin`, `Sakit`, `Dispen`
+- `keterangan`: opsional, maksimal 255 karakter
+
+**Response 200:**
+```json
+{
+  "success": true,
+  "message": "Status berhasil diperbarui"
+}
+```
+
+**Response 400:** `{ "success": false, "message": "ID tidak valid" }`
+**Response 404:** `{ "success": false, "message": "Data absensi tidak ditemukan" }`
+
+---
+
+### 8. Atur Status Manual (POST, Admin)
+
+```
+POST /api/attendance/manual
+Content-Type: application/json
+
+{
+  "student_id": 66,
+  "status": "Sakit",
+  "keterangan": "Sakit flu"
+}
+```
+
+Membuat atau meng-update absensi manual untuk siswa yang belum/telah absen hari ini. Jika sudah ada record absensi, status akan di-update. Jika belum ada, record baru akan dibuat. Hanya admin.
+
+**Rate limit:** 60 permintaan/menit per IP.
+
+**Validasi:**
+- `student_id`: wajib, integer positif
+- `status`: wajib, salah satu dari `Tepat Waktu`, `Terlambat`, `Alpha`, `Izin`, `Sakit`, `Dispen`
+- `keterangan`: opsional, maksimal 255 karakter
+
+**Response 200:**
+```json
+{
+  "success": true,
+  "message": "Status berhasil diatur"
+}
+```
+
+**Response 404:** `{ "success": false, "message": "Siswa tidak ditemukan" }`
+
+---
+
+### 9. Registrasi Kartu (POST)
 
 ```
 POST /api/cards
@@ -679,7 +792,7 @@ Mendaftarkan kartu RFID baru ke siswa tertentu (admin saja).
 
 ---
 
-### 8. Daftar Kartu Terbaru (GET)
+### 10. Daftar Kartu Terbaru (GET)
 
 ```
 GET /api/cards?limit=20&offset=0
@@ -717,7 +830,7 @@ Mendapatkan daftar kartu terdaftar (urut dari terbaru) dengan pagination.
 
 ---
 
-### 9. Daftar Siswa (GET, Pagination)
+### 11. Daftar Siswa (GET, Pagination)
 
 ```
 GET /api/students?limit=20&offset=0&q=
@@ -753,7 +866,7 @@ Mendapatkan daftar siswa (urut dari terbaru) dengan pagination dan pencarian.
 
 ---
 
-### 10. Registrasi Siswa (POST)
+### 12. Registrasi Siswa (POST)
 
 ```
 POST /api/students
@@ -788,7 +901,7 @@ Mendaftarkan siswa baru (admin saja).
 
 ---
 
-### 11. Update / Hapus Siswa
+### 13. Update / Hapus Siswa
 
 ```
 PUT /api/students/:id
@@ -810,7 +923,7 @@ DELETE /api/students/:id
 
 ---
 
-### 12. Import Siswa Massal (POST)
+### 14. Import Siswa Massal (POST)
 
 ```
 POST /api/students/import
@@ -822,6 +935,8 @@ Content-Type: application/json
 ```
 
 Import banyak siswa sekaligus (admin saja). Format satu siswa per baris: `NIS;Nama;Kelas`. Baris yang NIS-nya sudah terdaftar otomatis dilewati (`skipped`).
+
+> **Catatan:** Endpoint API ini masih tersedia untuk integrasi/script, tetapi UI import telah dihapus dari dashboard admin.
 
 **Batasan:** maksimal 500 baris per impor.
 
@@ -838,7 +953,7 @@ Import banyak siswa sekaligus (admin saja). Format satu siswa per baris: `NIS;Na
 
 ---
 
-### 13. Riwayat Absensi Siswa (GET)
+### 15. Riwayat Absensi Siswa (GET)
 
 ```
 GET /api/students/:id/attendance?days=30
@@ -865,7 +980,7 @@ Mendapatkan riwayat absensi seorang siswa (30 hari terakhir secara default).
 
 ---
 
-### 14. Daftar Siswa Aktif (GET)
+### 16. Daftar Siswa Aktif (GET)
 
 ```
 GET /api/students/active
@@ -883,7 +998,7 @@ Mendapatkan daftar siswa aktif untuk dropdown registrasi kartu (di-scope per kel
 }
 ```
 
-### 15. Daftar Kelas Siswa (GET)
+### 17. Daftar Kelas Siswa (GET)
 
 ```
 GET /api/students/classes
@@ -901,7 +1016,7 @@ Daftar kelas yang memiliki siswa aktif (admin saja), dipakai dropdown filter.
 
 ---
 
-### 16. Kelola Kelas & Akun Wali (Admin)
+### 18. Kelola Kelas & Akun Wali (Admin)
 
 Semua endpoint di bawah memerlukan peran admin.
 
@@ -969,11 +1084,11 @@ Menghapus akun wali kelas (data siswa tetap ada).
 
 ---
 
-### 17. Halaman Web
+### 19. Halaman Web
 
 ```
 GET /login               → Halaman login
-GET /                    → Dashboard admin (absensi + monitor + kelas + import)
+GET /                    → Dashboard admin (absensi + pemantauan + kelas)
 GET /kelas/:namaKelas    → Dashboard wali kelas (absensi kelasnya)
 GET /register            → Halaman registrasi kartu (admin)
 GET /students            → Halaman manajemen siswa (admin)
@@ -995,6 +1110,7 @@ Semua limiter memakai window 60 detik dan merespons `429` JSON.
 | `POST /api/attendance` | `attendanceIpLimiter` | 3000/menit | IP |
 | `POST /api/cards` | `writeIpLimiter` | 60/menit | IP |
 | `POST /api/students`, `PUT`/`DELETE /api/students/:id`, `POST /api/students/import` | `writeIpLimiter` | 60/menit | IP |
+| `PUT /api/attendance/:id/status`, `POST /api/attendance/manual` | `writeIpLimiter` | 60/menit | IP |
 | `POST /api/admin/classes` dan turunannya | `writeIpLimiter` | 60/menit | IP |
 | `GET` baca (`/api/attendance/today`, `/status`, `/api/cards`, `/api/students`, dst.) | `readIpLimiter` | 120/menit | IP |
 | `GET /api/attendance/stream` (SSE) | `sseIpLimiter` | 100/menit | IP |
@@ -1019,6 +1135,9 @@ Error handling terpusat di `src/middleware/errorHandler.ts` yang **menelusuri ra
 | `ECONNREFUSED`, `PROTOCOL_CONNECTION_LOST`, `ENOTFOUND`, `POOL_ENQUEUELIMIT`, `ECONNRESET` | 503 | `Database tidak dapat dihubungi` |
 | Error database lain (`ER_*`) | 500 | `Terjadi kesalahan pada database` |
 | Error lain (dengan `statusCode`) | sesuai | `Terjadi kesalahan pada server` |
+| ID absensi tidak valid (PUT /status) | 400 | `ID tidak valid` |
+| Record absensi tidak ditemukan (PUT /status) | 404 | `Data absensi tidak ditemukan` |
+| Siswa tidak ditemukan (POST /manual) | 404 | `Siswa tidak ditemukan` |
 
 Setiap error menyertakan `errorId` unik untuk memudahkan pencocokan dengan log server.
 
@@ -1176,13 +1295,17 @@ curl -b cookies.txt -N http://localhost:3000/api/attendance/stream
        │   ├── Jika sudah → 409 "Sudah absen hari ini" + SSE event attendance:duplicate
        │   └── Jika belum:
        │       ├── Tentukan status (Tepat Waktu / Terlambat)
-       │       ├── Insert ke database
+       │       ├── Insert ke database (kolom status + keterangan)
        │       │   ├── Jika ER_DUP_ENTRY (race condition) → handle graciously
        │       │   └── Jika sukses:
        │       │       ├── Broadcast via SSE ke client kelas terkait
        │       │       └── Response 200 ke reader
        │       └── (Error lain → throw, tangani di errorHandler)
 ```
+
+**Status yang mungkin:**
+- `Tepat Waktu` / `Terlambat` — ditentukan otomatis berdasarkan jam tap
+- `Alpha` / `Izin` / `Sakit` / `Dispen` — diatur manual oleh admin dari dashboard
 
 ### Alur Real-time (SSE)
 
@@ -1198,8 +1321,39 @@ curl -b cookies.txt -N http://localhost:3000/api/attendance/stream
 ### Penentuan Status
 
 ```
-current_time <= late_threshold → "Tepat Waktu"
-current_time >  late_threshold → "Terlambat"
+Otomatis (tap RFID):
+  current_time <= late_threshold → "Tepat Waktu"
+  current_time >  late_threshold → "Terlambat"
+
+Manual (admin via dashboard):
+  Alpha / Izin / Sakit / Dispen (dengan keterangan opsional)
+```
+
+- **Status otomatis** ditentukan saat siswa tap kartu RFID, berdasarkan `late_threshold`
+- **Status manual** diatur oleh admin dari kolom Aksi di tabel pemantauan:
+  - Siswa yang **belum absen** → admin bisa atur status: Tepat Waktu, Terlambat, Alpha, Izin, Sakit, Dispen
+  - Siswa yang **sudah absen** → admin bisa mengubah status yang sudah ada (misal dari Tepat Waktu ke Izin)
+- Kolom `keterangan` menyimpan catatan opsional (misalnya "Sakit flu" atau "Izin keluarga")
+- Status manual disimpan ke tabel `attendance` (sama dengan status otomatis)
+- **Badge warna** untuk setiap status di UI:
+  - Tepat Waktu → hijau, Terlambat → merah, Belum Absen → abu-abu
+  - Alpha → abu-abu gelap, Izin → kuning, Sakit → biru, Dispen → indigo
+
+### Alur Status Manual (Admin)
+
+```
+1. Admin membuka dashboard (/) dan melihat tabel Pemantauan Kehadiran
+2. Untuk siswa yang belum absen:
+   a. Pilih status dari dropdown (Atur Status)
+   b. Isi keterangan (opsional)
+   c. Klik "Simpan"
+   d. POST /api/attendance/manual → insert record absensi baru
+3. Untuk siswa yang sudah absen:
+   a. Ubah status dari dropdown yang sudah terisi
+   b. Edit keterangan (opsional)
+   c. Klik "Simpan"
+   d. PUT /api/attendance/:id/status → update record absensi
+4. Perubahan di-broadcast via SSE ke client lain
 ```
 
 - `late_threshold` bisa dikonfigurasi via environment variable `LATE_THRESHOLD` (default: `07:00:00`)
