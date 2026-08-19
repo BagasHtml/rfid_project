@@ -61,14 +61,41 @@ document.addEventListener('DOMContentLoaded', () => {
   setCurrentDate();
   updateMetricLabel();
   loadClasses();
-  loadAttendance(1);
+  if (role !== 'admin') {
+    loadAttendance(1);
+  }
   connectSSE();
+  initThemeToggle();
 });
+
+function initThemeToggle() {
+  const toggle = document.getElementById('theme-toggle');
+  if (!toggle) return;
+
+  const html = document.documentElement;
+
+  function applyTheme(theme) {
+    if (theme === 'dark') {
+      html.setAttribute('data-theme', 'dark');
+    } else {
+      html.removeAttribute('data-theme');
+    }
+  }
+
+  toggle.addEventListener('click', () => {
+    const isDark = html.getAttribute('data-theme') === 'dark';
+    const next = isDark ? 'light' : 'dark';
+    applyTheme(next);
+    localStorage.setItem('theme', next);
+  });
+}
 
 if (classSelect) {
   classSelect.addEventListener('change', () => {
     updateMetricLabel();
-    loadAttendance(1);
+    if (role !== 'admin') {
+      loadAttendance(1);
+    }
     if (typeof onClassChangeHook === 'function') onClassChangeHook();
   });
 }
@@ -80,6 +107,8 @@ function setCurrentDate() {
 }
 
 async function loadAttendance(page = 1) {
+  if (role === 'admin') return;
+
   try {
     const cls = selectedClass();
     const params = new URLSearchParams({
@@ -378,7 +407,9 @@ async function submitUID(uid) {
     } else {
       showFlash('error', data.message || 'Gagal');
       if (res.status === 403) {
-        showToast('error', 'Akses ditolak', data.message || 'Kartu bukan milik kelas ini');
+        showToast('error', 'Kartu Salah Kelas', data.message || 'Kartu bukan milik kelas ini');
+      } else {
+        showToast('error', 'Gagal', data.message || 'Terjadi kesalahan');
       }
     }
   } catch (err) {

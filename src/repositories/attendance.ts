@@ -1,7 +1,7 @@
 import { eq, and, desc, sql, type SQL } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { attendance, students } from '../db/schema.js';
-import { countRows, getInsertId, clampPagination, findFirst } from '../db/helpers.js';
+import { countRows, getInsertId, getAffectedRows, clampPagination, findFirst } from '../db/helpers.js';
 import type { AttendanceStatus } from '../types/attendance.js';
 import { buildSearchWhere } from './student.js';
 
@@ -11,6 +11,7 @@ export interface AttendanceRow {
   date: string;
   time: string;
   status: string;
+  keterangan: string | null;
 }
 
 export interface AttendanceWithStudentRow extends AttendanceRow {
@@ -25,6 +26,7 @@ const attendanceColumns = {
   date: attendance.date,
   time: attendance.time,
   status: attendance.status,
+  keterangan: attendance.keterangan,
 };
 
 const withStudentColumns = {
@@ -51,6 +53,30 @@ export async function insertAttendance(
   status: AttendanceStatus
 ): Promise<number> {
   return getInsertId(db.insert(attendance).values({ studentId, date, time, status }));
+}
+
+export async function updateAttendanceStatus(
+  id: number,
+  status: AttendanceStatus,
+  keterangan?: string | null,
+): Promise<number> {
+  return getAffectedRows(
+    db.update(attendance)
+      .set({ status, keterangan: keterangan ?? null })
+      .where(eq(attendance.id, id)),
+  );
+}
+
+export async function insertManualAttendance(
+  studentId: number,
+  date: string,
+  status: AttendanceStatus,
+  keterangan?: string | null,
+): Promise<number> {
+  return getInsertId(
+    db.insert(attendance)
+      .values({ studentId, date, time: '00:00:00', status, keterangan: keterangan ?? null }),
+  );
 }
 
 const studentJoinCond = eq(attendance.studentId, students.id);
@@ -115,6 +141,8 @@ export interface StudentStatusRow {
   class: string;
   time: string | null;
   status: string | null;
+  attendanceId: number | null;
+  keterangan: string | null;
 }
 
 const studentStatusColumns = {
@@ -124,6 +152,8 @@ const studentStatusColumns = {
   class: students.class,
   time: attendance.time,
   status: attendance.status,
+  attendanceId: attendance.id,
+  keterangan: attendance.keterangan,
 };
 
 export async function getStudentsStatusList(

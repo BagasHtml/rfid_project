@@ -10,7 +10,7 @@ import { getCurrentDate, getCurrentTime, determineStatus } from '../utils/date.j
 import { writeOrDuplicate } from '../utils/insert.js';
 import { buildStudentInfo } from '../utils/format.js';
 import { ok, fail } from '../utils/http.js';
-import type { AttendanceDuplicate, AttendanceResult } from '../types/attendance.js';
+import type { AttendanceDuplicate, AttendanceResult, AttendanceStatus } from '../types/attendance.js';
 import type { CardWithStudent } from '../types/card.js';
 
 async function findDuplicate(card: CardWithStudent, date: string): Promise<AttendanceDuplicate | null> {
@@ -50,7 +50,7 @@ export async function processAttendance(uid: string, userClass?: string | null):
   const card = toCardWithStudent(rawCard);
 
   if (userClass && card.student_class !== userClass) {
-    return fail('Kartu ini bukan milik kelas Anda', 403);
+    return fail(`Wah, kamu salah kelas nih! Kartu ini bukan milik kelas ${userClass}`, 403);
   }
 
   const date = getCurrentDate();
@@ -101,4 +101,32 @@ export async function getStatusList(limit?: number, offset?: number, className?:
     total,
     stats: buildStats(statusCount, totalStudents, statusCount.onTime + statusCount.late),
   };
+}
+
+export async function updateStatus(
+  attendanceId: number,
+  status: AttendanceStatus,
+  keterangan?: string | null,
+): Promise<AttendanceResult> {
+  const affected = await attendanceRepo.updateAttendanceStatus(attendanceId, status, keterangan);
+  if (affected === 0) return fail('Data absensi tidak ditemukan', 404);
+  return ok('Status berhasil diperbarui');
+}
+
+export async function setManualStatus(
+  studentId: number,
+  status: AttendanceStatus,
+  keterangan?: string | null,
+): Promise<AttendanceResult> {
+  const date = getCurrentDate();
+  const existing = await attendanceRepo.findTodayAttendance(studentId, date);
+
+  if (existing) {
+    const affected = await attendanceRepo.updateAttendanceStatus(existing.id, status, keterangan);
+    if (affected === 0) return fail('Gagal memperbarui status', 500);
+  } else {
+    await attendanceRepo.insertManualAttendance(studentId, date, status, keterangan);
+  }
+
+  return ok('Status berhasil diatur');
 }

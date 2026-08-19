@@ -21,6 +21,7 @@ export function toAttendanceRecord(row: AttendanceRow): AttendanceRecord {
     date: toDateStr(row.date),
     time: toTimeStr(row.time),
     status: row.status as AttendanceStatus,
+    keterangan: row.keterangan ?? null,
   };
 }
 
@@ -40,6 +41,8 @@ export interface StudentStatusRecord {
   class: string;
   time: string | null;
   status: string;
+  attendanceId: number | null;
+  keterangan: string | null;
 }
 
 export function toStudentStatus(row: StudentStatusRow): StudentStatusRecord {
@@ -50,5 +53,7 @@ export function toStudentStatus(row: StudentStatusRow): StudentStatusRecord {
     class: row.class,
     time: row.time,
     status: row.status ?? 'Belum Absen',
+    attendanceId: row.attendanceId ?? null,
+    keterangan: row.keterangan ?? null,
   };
 }

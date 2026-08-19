@@ -2,12 +2,27 @@ import { z } from 'zod';
 
 export const UID_PATTERN = /^[0-9A-Fa-f]{8,24}$/;
 
+export const MANUAL_STATUSES = ['Alpha', 'Izin', 'Sakit', 'Dispen'] as const;
+
 export const PostAttendanceSchema = z.object({
   uid: z
     .string({ error: 'UID wajib diisi' })
     .trim()
     .toUpperCase()
     .regex(UID_PATTERN, 'Format UID tidak valid (8-24 karakter hex)'),
+});
+
+export const UpdateStatusSchema = z.object({
+  status: z.enum(MANUAL_STATUSES, { error: 'Status tidak valid' }),
+  keterangan: z.string().trim().max(255, 'Keterangan maksimal 255 karakter').optional(),
+});
+
+export const ManualAttendanceSchema = z.object({
+  student_id: z.coerce.number({ error: 'ID siswa wajib diisi' })
+    .int('ID siswa harus bilangan bulat')
+    .positive('ID siswa tidak valid'),
+  status: z.enum(MANUAL_STATUSES, { error: 'Status tidak valid' }),
+  keterangan: z.string().trim().max(255, 'Keterangan maksimal 255 karakter').optional(),
 });
 
 export const GetTodayQuerySchema = z.object({

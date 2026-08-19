@@ -1,47 +1,59 @@
-import { mysqlTable, int, varchar, date, time, boolean, timestamp, uniqueIndex, foreignKey } from 'drizzle-orm/mysql-core';
+import {
+  mysqlTable,
+  int,
+  varchar,
+  date,
+  time,
+  boolean,
+  timestamp,
+  uniqueIndex,
+  foreignKey,
+} from 'drizzle-orm/mysql-core';
+
+const pk = () => int('id').primaryKey().autoincrement();
+const isActive = () => boolean('is_active').notNull().default(true);
+const createdAt = () => timestamp('created_at', { mode: 'date' });
+
+const fkToStudents = (
+  name: string,
+  columns: Parameters<typeof foreignKey>[0]['columns'],
+) =>
+  foreignKey({ name, columns, foreignColumns: [students.id] })
+    .onDelete('restrict')
+    .onUpdate('cascade');
+
 export const students = mysqlTable('students', {
-  id: int('id').primaryKey().autoincrement(),
+  id: pk(),
   nis: varchar('nis', { length: 32 }).notNull(),
   name: varchar('name', { length: 128 }).notNull(),
   class: varchar('class', { length: 16 }).notNull(),
-  isActive: boolean('is_active').notNull().default(true),
-  createdAt: timestamp('created_at', { mode: 'date' }),
-}, (table) => ({
-  nisUnique: uniqueIndex('uq_students_nis').on(table.nis),
+  isActive: isActive(),
+  createdAt: createdAt(),
+}, (t) => ({
+  nisUnique: uniqueIndex('uq_students_nis').on(t.nis),
 }));
 
 export const cards = mysqlTable('cards', {
-  id: int('id').primaryKey().autoincrement(),
+  id: pk(),
   uid: varchar('uid', { length: 32 }).notNull(),
   studentId: int('student_id').notNull(),
-  isActive: boolean('is_active').notNull().default(true),
-  createdAt: timestamp('created_at', { mode: 'date' }),
-}, (table) => ({
-  uidUnique: uniqueIndex('uq_cards_uid').on(table.uid),
-  studentFk: foreignKey({
-    name: 'fk_cards_student',
-    columns: [table.studentId],
-    foreignColumns: [students.id],
-  })
-    .onDelete('restrict')
-    .onUpdate('cascade'),
+  isActive: isActive(),
+  createdAt: createdAt(),
+}, (t) => ({
+  uidUnique: uniqueIndex('uq_cards_uid').on(t.uid),
+  studentFk: fkToStudents('fk_cards_student', [t.studentId]),
 }));
 
 export const attendance = mysqlTable('attendance', {
-  id: int('id').primaryKey().autoincrement(),
+  id: pk(),
   studentId: int('student_id').notNull(),
   date: date('date', { mode: 'string' }).notNull(),
   time: time('time').notNull(),
   status: varchar('status', { length: 20 }).notNull(),
-}, (table) => ({
-  uniqueStudentDate: uniqueIndex('uq_attendance_student_date').on(table.studentId, table.date),
-  studentFk: foreignKey({
-    name: 'fk_attendance_student',
-    columns: [table.studentId],
-    foreignColumns: [students.id],
-  })
-    .onDelete('restrict')
-    .onUpdate('cascade'),
+  keterangan: varchar('keterangan', { length: 255 }),
+}, (t) => ({
+  uniqueStudentDate: uniqueIndex('uq_attendance_student_date').on(t.studentId, t.date),
+  studentFk: fkToStudents('fk_attendance_student', [t.studentId]),
 }));
 
 export const settings = mysqlTable('settings', {
@@ -50,11 +62,11 @@ export const settings = mysqlTable('settings', {
 });
 
 export const users = mysqlTable('users', {
-  id: int('id').primaryKey().autoincrement(),
+  id: pk(),
   username: varchar('username', { length: 50 }).notNull(),
   passwordHash: varchar('password_hash', { length: 255 }).notNull(),
   class: varchar('class', { length: 20 }),
-  createdAt: timestamp('created_at', { mode: 'date' }),
-}, (table) => ({
-  usernameUnique: uniqueIndex('uq_users_username').on(table.username),
+  createdAt: createdAt(),
+}, (t) => ({
+  usernameUnique: uniqueIndex('uq_users_username').on(t.username),
 }));

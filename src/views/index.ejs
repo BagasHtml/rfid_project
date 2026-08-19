@@ -7,7 +7,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/style.css?v=7">
+  <link rel="stylesheet" href="/css/style.css?v=9">
+  <script>
+    (function(){var t=localStorage.getItem('theme');if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.setAttribute('data-theme','dark');})();
+  </script>
 </head>
 <body data-role="admin">
   <%- include('partials/header') %>
@@ -66,32 +69,18 @@
     <input type="text" id="rfid-input" autocomplete="off" style="position:fixed;left:-9999px;width:1px;height:1px;opacity:0" aria-hidden="true">
   </section>
 
-  <section class="attendance-section">
-    <div class="section-header">
-      <h2>Daftar Absensi Hari Ini</h2>
-      <div class="section-tools">
-        <select id="class-select" class="class-select" aria-label="Pilih kelas">
-          <option value="">Semua Kelas</option>
-        </select>
-        <span id="total-count" class="stat-badge">0 hadir</span>
-      </div>
-    </div>
-    <div class="table-hint">Klik baris siswa untuk melihat riwayat absensinya</div>
-
-    <%- include('partials/table') %>
-
-    <div class="pagination" id="pagination"></div>
-  </section>
-
-  <% if (user.role === 'admin') { %>
   <section class="attendance-section monitor-section">
     <div class="section-header">
       <h2>Pemantauan Kehadiran Siswa</h2>
       <div class="section-tools">
+        <select id="class-select" class="class-select" aria-label="Pilih kelas">
+          <option value="">Semua Kelas</option>
+        </select>
         <input type="search" id="monitor-search" class="class-select monitor-search" placeholder="Cari NIS / Nama / Kelas..." autocomplete="off">
+        <span id="total-count" class="stat-badge">0 siswa</span>
       </div>
     </div>
-    <div class="table-hint">Status seluruh siswa hari ini. Klik baris untuk melihat riwayat absensi.</div>
+    <div class="table-hint">Klik baris untuk melihat riwayat absensi. Ubah status siswa yang belum absen di kolom Aksi.</div>
     <div class="table-wrapper">
       <table class="attendance-table">
         <thead>
@@ -102,56 +91,41 @@
             <th>Kelas</th>
             <th>Waktu</th>
             <th>Status</th>
+            <th>Aksi</th>
           </tr>
         </thead>
         <tbody id="monitor-body">
-          <tr class="empty-row"><td colspan="6">Memuat data siswa...</td></tr>
+          <tr class="empty-row"><td colspan="7">Memuat data siswa...</td></tr>
         </tbody>
       </table>
     </div>
     <div class="pagination" id="monitor-pagination"></div>
   </section>
 
-  <section class="admin-grid">
-    <section class="attendance-section admin-card">
-      <div class="section-header">
-        <h2>Kelola Kelas &amp; Akun Wali</h2>
-        <span class="stat-badge" id="admin-class-count">0 kelas</span>
-      </div>
-      <div class="admin-add-row">
-        <input type="text" id="admin-class-input" class="form-input" placeholder="Nama kelas baru, mis. XII RPL 6" maxlength="20" autocomplete="off">
-        <button id="admin-class-add-btn" class="btn-primary btn-sm" type="button">+ Tambah Kelas</button>
-      </div>
-      <div class="table-wrapper">
-        <table class="attendance-table">
-          <thead>
-            <tr>
-              <th>Kelas</th>
-              <th>Jumlah Siswa</th>
-              <th>Akun Wali</th>
-              <th>Aksi</th>
-            </tr>
-          </thead>
-          <tbody id="admin-class-body">
-            <tr class="empty-row"><td colspan="4">Memuat data kelas...</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="attendance-section admin-card">
-      <div class="section-header">
-        <h2>Import Siswa Massal</h2>
-      </div>
-      <div class="import-body">
-        <p class="import-hint">Satu siswa per baris, format: <code>NIS;Nama;Kelas</code>. NIS yang sudah terdaftar otomatis dilewati.</p>
-        <textarea id="import-lines" class="form-input import-textarea" placeholder="2024001;Budi Santoso;XII RPL 1&#10;2024002;Siti Aminah;XII RPL 1" spellcheck="false"></textarea>
-        <div class="import-footer">
-          <button id="import-btn" class="btn-primary btn-sm" type="button">Import Sekarang</button>
-          <span id="import-result" class="import-result"></span>
-        </div>
-      </div>
-    </section>
+  <section class="attendance-section admin-card">
+    <div class="section-header">
+      <h2>Kelola Kelas &amp; Akun Wali</h2>
+      <span class="stat-badge" id="admin-class-count">0 kelas</span>
+    </div>
+    <div class="admin-add-row">
+      <input type="text" id="admin-class-input" class="form-input" placeholder="Nama kelas baru, mis. XII RPL 6" maxlength="20" autocomplete="off">
+      <button id="admin-class-add-btn" class="btn-primary btn-sm" type="button">+ Tambah Kelas</button>
+    </div>
+    <div class="table-wrapper">
+      <table class="attendance-table">
+        <thead>
+          <tr>
+            <th>Kelas</th>
+            <th>Jumlah Siswa</th>
+            <th>Akun Wali</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="admin-class-body">
+          <tr class="empty-row"><td colspan="4">Memuat data kelas...</td></tr>
+        </tbody>
+      </table>
+    </div>
   </section>
 
   <div class="modal-overlay hidden" id="history-modal">
@@ -183,15 +157,14 @@
       </div>
     </div>
   </div>
-  <% } %>
 
   <%- include('partials/footer') %>
   <%- include('partials/status') %>
 
   <script src="/js/http.js?v=4"></script>
-  <script src="/js/app.js?v=6"></script>
+  <script src="/js/app.js?v=7"></script>
   <% if (user.role === 'admin') { %>
-  <script src="/js/admin.js?v=2"></script>
+  <script src="/js/admin.js?v=3"></script>
   <% } %>
 </body>
 </html>

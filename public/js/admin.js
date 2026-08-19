@@ -115,48 +115,6 @@ async function addClass() {
   }
 }
 
-async function importStudents() {
-  const textarea = document.getElementById('import-lines');
-  const btn = document.getElementById('import-btn');
-  const resultEl = document.getElementById('import-result');
-  const lines = (textarea.value || '').trim();
-
-  if (!lines) {
-    if (resultEl) { resultEl.className = 'import-result error'; resultEl.textContent = 'Isi data terlebih dahulu.'; }
-    return;
-  }
-
-  btn.disabled = true;
-  btn.textContent = 'Mengimpor...';
-  try {
-    const res = await apiFetch('/api/students/import', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ lines }),
-    });
-    const data = await res.json();
-    if (!data.success) throw new Error(data.message || 'Import gagal');
-
-    const errors = Array.isArray(data.errors) ? data.errors : [];
-    if (resultEl) {
-      resultEl.className = errors.length ? 'import-result error' : 'import-result success';
-      resultEl.textContent = `${data.added} siswa ditambahkan, ${data.skipped} dilewati (sudah ada).${errors.length ? ` ${errors.length} baris bermasalah.` : ''}`;
-    }
-    if (errors.length) {
-      resultEl.textContent += ` ${errors.join(' | ')}`;
-    }
-    textarea.value = '';
-
-    loadAdminClasses();
-    loadAttendance(1);
-  } catch (err) {
-    if (resultEl) { resultEl.className = 'import-result error'; resultEl.textContent = err.message || 'Import gagal'; }
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Import Sekarang';
-  }
-}
-
 async function openHistory(student) {
   const modal = document.getElementById('history-modal');
   const nameEl = document.getElementById('history-name');
@@ -181,7 +139,14 @@ async function openHistory(student) {
 
     const summaryKeys = Object.keys(summary);
     summaryEl.innerHTML = summaryKeys.length
-      ? summaryKeys.map(key => `<span class="history-chip ${key === 'Terlambat' ? 'history-chip-late' : 'history-chip-ontime'}">${summary[key]} ${escapeHtml(key)}</span>`).join('')
+      ? summaryKeys.map(key => {
+          const chipClass = key === 'Terlambat' ? 'history-chip-late'
+            : key === 'Alpha' ? 'history-chip-alpha'
+              : key === 'Izin' ? 'history-chip-izin'
+                : key === 'Sakit' ? 'history-chip-sakit'
+                  : key === 'Dispen' ? 'history-chip-dispen' : 'history-chip-ontime';
+          return `<span class="history-chip ${chipClass}">${summary[key]} ${escapeHtml(key)}</span>`;
+        }).join('')
       : '<span class="history-chip">Belum ada catatan</span>';
 
     if (history.length === 0) {
@@ -189,13 +154,20 @@ async function openHistory(student) {
       return;
     }
 
-    listEl.innerHTML = history.map(item => `
-      <tr>
-        <td>${escapeHtml(item.date)}</td>
-        <td>${escapeHtml(item.time)}</td>
-        <td><span class="status-badge ${item.status === 'Tepat Waktu' ? 'tepat-waktu' : 'terlambat'}">${escapeHtml(item.status)}</span></td>
-      </tr>
-    `).join('');
+    listEl.innerHTML = history.map(item => {
+      const statusClass = item.status === 'Terlambat' ? 'terlambat'
+        : item.status === 'Alpha' ? 'alpha'
+          : item.status === 'Izin' ? 'izin'
+            : item.status === 'Sakit' ? 'sakit'
+              : item.status === 'Dispen' ? 'dispen' : 'tepat-waktu';
+      return `
+        <tr>
+          <td>${escapeHtml(item.date)}</td>
+          <td>${escapeHtml(item.time)}</td>
+          <td><span class="status-badge ${statusClass}">${escapeHtml(item.status)}</span></td>
+        </tr>
+      `;
+    }).join('');
   } catch (err) {
     listEl.innerHTML = `<tr class="empty-row"><td colspan="3">${escapeHtml(err.message)}</td></tr>`;
   }
@@ -244,15 +216,44 @@ async function loadMonitor(page = 1) {
 
 function renderMonitorTable(rows) {
   if (rows.length === 0) {
-    monitorBody.innerHTML = '<tr class="empty-row"><td colspan="6">Tidak ada siswa ditemukan</td></tr>';
+    monitorBody.innerHTML = '<tr class="empty-row"><td colspan="7">Tidak ada siswa ditemukan</td></tr>';
     return;
   }
 
   const startIndex = (monitorPage - 1) * MONITOR_PER_PAGE;
+  const statusOptions = ['Tepat Waktu', 'Terlambat', 'Alpha', 'Izin', 'Sakit', 'Dispen'];
+  const hasAttendance = (row) => row.time !== null;
+
   monitorBody.innerHTML = rows.map((row, i) => {
     const statusClass = row.status === 'Belum Absen'
       ? 'belum-absen'
-      : (row.status === 'Terlambat' ? 'terlambat' : 'tepat-waktu');
+      : (row.status === 'Terlambat' ? 'terlambat'
+        : row.status === 'Alpha' ? 'alpha'
+          : row.status === 'Izin' ? 'izin'
+            : row.status === 'Sakit' ? 'sakit'
+              : row.status === 'Dispen' ? 'dispen' : 'tepat-waktu');
+
+    const actionsHtml = hasAttendance(row)
+      ? `<div class="status-actions">
+          <select class="status-select" data-id="${row.attendanceId || ''}" data-student-id="${row.id}">
+            ${statusOptions.map(s => `<option value="${s}" ${s === row.status ? 'selected' : ''}>${s}</option>`).join('')}
+          </select>
+          <input type="text" class="keterangan-input" data-id="${row.attendanceId || ''}" data-student-id="${row.id}" placeholder="Keterangan..." value="${escapeAttr(row.keterangan || '')}" maxlength="255">
+          <button type="button" class="btn-action btn-edit btn-save-status" data-student-id="${row.id}" data-attendance-id="${row.attendanceId || ''}">Simpan</button>
+        </div>`
+      : `<div class="status-actions">
+          <select class="status-select" data-student-id="${row.id}">
+            <option value="" disabled selected>Atur Status</option>
+            ${statusOptions.filter(s => s === 'Tepat Waktu' || s === 'Terlambat').map(s => `<option value="${s}">${s}</option>`).join('')}
+            <option value="Alpha">Alpha</option>
+            <option value="Izin">Izin</option>
+            <option value="Sakit">Sakit</option>
+            <option value="Dispen">Dispen</option>
+          </select>
+          <input type="text" class="keterangan-input" data-student-id="${row.id}" placeholder="Keterangan..." maxlength="255">
+          <button type="button" class="btn-action btn-edit btn-save-status" data-student-id="${row.id}">Simpan</button>
+        </div>`;
+
     return `
       <tr data-student-id="${row.id}" data-student-name="${escapeAttr(row.name)}" data-student-nis="${escapeAttr(row.nis)}" data-student-class="${escapeAttr(row.class)}">
         <td>${startIndex + i + 1}</td>
@@ -261,6 +262,7 @@ function renderMonitorTable(rows) {
         <td>${escapeHtml(row.class)}</td>
         <td>${row.time ? escapeHtml(row.time) : '—'}</td>
         <td><span class="status-badge ${statusClass}">${escapeHtml(row.status)}</span></td>
+        <td class="actions-cell">${actionsHtml}</td>
       </tr>
     `;
   }).join('');
@@ -306,6 +308,54 @@ function refreshMonitor() {
   monitorRefreshTimer = setTimeout(() => loadMonitor(monitorPage), 300);
 }
 
+async function saveStatus(btn) {
+  const studentId = Number(btn.dataset.studentId);
+  const attendanceId = btn.dataset.attendanceId ? Number(btn.dataset.attendanceId) : null;
+  const row = btn.closest('tr');
+  const select = row.querySelector('.status-select');
+  const keteranganInput = row.querySelector('.keterangan-input');
+  const status = select.value;
+  const keterangan = (keteranganInput.value || '').trim() || undefined;
+
+  if (!status || status === 'Atur Status') {
+    adminToast('error', 'Gagal', 'Pilih status terlebih dahulu');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Menyimpan...';
+
+  try {
+    let res;
+    if (attendanceId) {
+      res = await apiFetch(`/api/attendance/${attendanceId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, keterangan }),
+      });
+    } else {
+      res = await apiFetch('/api/attendance/manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ student_id: studentId, status, keterangan }),
+      });
+    }
+
+    const data = await res.json();
+    if (data.success) {
+      adminToast('success', 'Berhasil', data.message || 'Status diperbarui');
+      loadMonitor(monitorPage);
+    } else {
+      adminToast('error', 'Gagal', data.message || 'Terjadi kesalahan');
+    }
+  } catch (err) {
+    adminToast('error', 'Gagal', err.message || 'Koneksi bermasalah');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Simpan';
+  }
+}
+
 onNewAttendanceHook = function() { refreshMonitor(); };
 onClassChangeHook = function() { loadMonitor(1); };
 
@@ -333,9 +383,6 @@ function initAdmin() {
     });
   }
 
-  const importBtn = document.getElementById('import-btn');
-  if (importBtn) importBtn.addEventListener('click', importStudents);
-
   if (monitorSearchInput) {
     monitorSearchInput.addEventListener('input', () => {
       clearTimeout(monitorRefreshTimer);
@@ -355,8 +402,15 @@ function initAdmin() {
   }
 
   document.addEventListener('click', (e) => {
+    const saveBtn = e.target.closest('.btn-save-status');
+    if (saveBtn) {
+      e.stopPropagation();
+      saveStatus(saveBtn);
+      return;
+    }
+
     const tr = e.target.closest('tr[data-student-id]');
-    if (tr && tr.dataset.studentId) {
+    if (tr && tr.dataset.studentId && !e.target.closest('.status-actions')) {
       openHistory({
         id: tr.dataset.studentId,
         name: tr.dataset.studentName,

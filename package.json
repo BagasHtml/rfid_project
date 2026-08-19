@@ -29,7 +29,6 @@
     "@types/express": "^4.17.21",
     "@types/node": "^22.0.0",
     "drizzle-kit": "^0.31.10",
-    "nodemon": "^3.1.14",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
   },

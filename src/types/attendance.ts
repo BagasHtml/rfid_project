@@ -1,6 +1,6 @@
 import type { StudentInfo } from './student.js';
 
-export type AttendanceStatus = 'Tepat Waktu' | 'Terlambat';
+export type AttendanceStatus = 'Tepat Waktu' | 'Terlambat' | 'Alpha' | 'Izin' | 'Sakit' | 'Dispen';
 
 export interface AttendanceRecord {
   id: number;
@@ -8,6 +8,7 @@ export interface AttendanceRecord {
   date: string;
   time: string;
   status: AttendanceStatus;
+  keterangan: string | null;
 }
 
 export interface AttendanceWithStudent extends AttendanceRecord {
